@@ -1,0 +1,142 @@
+/* =========================================================================
+   STYLE.CSS - THÈME CLAIR FAIRPAY
+   ========================================================================= */
+
+:root {
+    --bg-light: #f4f6f8;        /* Fond de page gris très clair */
+    --card-bg: #ffffff;         /* Fond des cartes blanc pur */
+    --text-main: #212529;       /* Texte principal noir/gris foncé */
+    --text-muted: #6c757d;      /* Texte secondaire gris */
+    --primary-blue: #0d6efd;    /* Bleu officiel de tes boutons */
+    --border-color: #dee2e6;    /* Couleur des bordures */
+}
+
+body {
+    background-color: var(--bg-light);
+    color: var(--text-main);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    margin: 0;
+    padding-bottom: 20px;
+}
+
+/* --- CONTENEUR PRINCIPAL (Mobile-First) --- */
+.main-container, .mobile-container {
+    max-width: 500px;
+    margin: 0 auto;
+    background-color: var(--card-bg);
+    min-height: 100vh;
+}
+
+/* --- CARTES CLAIRES (UI Fairpay) --- */
+.light-card {
+    background-color: var(--card-bg);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05); /* Ombre légère pour le relief */
+    margin-bottom: 15px;
+    transition: transform 0.2s;
+}
+
+/* --- BOUTONS (Solides et Arrondis) --- */
+.btn-primary-custom {
+    background-color: var(--primary-blue);
+    border-color: var(--primary-blue);
+    color: white;
+    border-radius: 50px; /* Forme pilule comme sur tes photos */
+    padding: 12px;
+    font-weight: bold;
+    width: 100%;
+    border: none;
+    transition: background-color 0.2s;
+}
+
+.btn-primary-custom:hover {
+    background-color: #0b5ed7;
+    transform: scale(1.01);
+}
+
+/* --- FORMULAIRES (Inputs Clairs) --- */
+.form-control, .form-select {
+    background-color: #f8f9fa !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--text-main) !important;
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 14px;
+}
+
+.form-control:focus {
+    border-color: var(--primary-blue) !important;
+    background-color: #fff !important;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.15) !important;
+}
+
+/* --- BARRE DE NAVIGATION DU BAS (Mobile) --- */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 70px;
+    display: flex;
+    justify-content: space-around;
+    background-color: white;
+    border-top: 1px solid var(--border-color);
+    z-index: 1000;
+}
+
+.nav-item {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    flex: 1;
+}
+
+.nav-item i {
+    font-size: 22px;
+    margin-bottom: 2px;
+}
+
+.nav-item.active {
+    color: var(--primary-blue);
+    font-weight: bold;
+}
+
+/* --- BOUTON FLOTTANT (FAB) --- */
+.fab-button {
+    position: fixed;
+    bottom: 85px;
+    right: 20px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50% !important;
+    background-color: var(--primary-blue);
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 24px;
+    border: none;
+    box-shadow: 0 4px 10px rgba(13, 110, 253, 0.3);
+    z-index: 999;
+}
+
+/* --- TOP BAR (Retour) --- */
+.top-bar {
+    display: flex;
+    align-items: center;
+    padding: 20px;
+    gap: 15px;
+}
+
+.back-btn {
+    color: var(--text-main);
+    font-size: 20px;
+    text-decoration: none;
+}
