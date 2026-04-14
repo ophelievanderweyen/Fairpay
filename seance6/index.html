@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Fairpay - Gestion de dépenses</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    
+    
+    <link rel="stylesheet" href="style.css"> 
+    
+    <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
+</head>
+<body class="bg-light">
+
+    <div id="app">
+        <main class="main-container bg-white shadow-sm">
+            
+            <accueil-page v-if="currentPage === 'home'"></accueil-page>
+            
+            <nouveau-page v-if="currentPage === 'nouveau'"></nouveau-page>
+
+            <nouveau-groupe-page v-if="currentPage === 'nouveauGroupe'"></nouveau-groupe-page>
+            
+            <groupes-page v-if="currentPage === 'groupes'"></groupes-page>
+            
+            <div v-if="currentPage === 'profil'" class="p-4 text-dark text-center">
+                <i class="bi bi-person-circle fs-1 text-primary mb-3 d-block"></i>
+                <h5>Mon Profil</h5>
+                <p class="text-muted small">Connectée en tant que "user"</p>
+                <hr>
+                <button class="btn btn-outline-danger btn-sm">Déconnexion</button>
+            </div>
+
+        </main>
+
+        <button v-if="currentPage === 'home'" class="btn btn-primary rounded-circle fab-button shadow" @click="currentPage = 'nouveau'">
+            <i class="bi bi-plus-lg"></i>
+        </button>
+
+        <nav class="bottom-nav bg-white border-top shadow">
+            <button class="nav-item" :class="{ 'active': currentPage === 'home' }" @click="currentPage = 'home'">
+                <i class="bi bi-house-door-fill"></i>
+                <span>Accueil</span>
+            </button>
+            <button class="nav-item" :class="{ 'active': currentPage === 'groupes' || currentPage === 'nouveauGroupe' }" @click="currentPage = 'groupes'">
+                <i class="bi bi-collection-fill"></i>
+                <span>Groupes</span>
+            </button>
+            <button class="nav-item" :class="{ 'active': currentPage === 'profil' }" @click="currentPage = 'profil'">
+                <i class="bi bi-person-fill"></i>
+                <span>Profil</span>
+            </button>
+        </nav>
+    </div>
+
+    <script src="components/Accueil.js"></script>
+    <script src="components/Nouveau.js"></script>
+    <script src="components/NouveauGroupe.js"></script> 
+    <script src="components/Groupes.js"></script>
+    
+
+    <script src="app.js"></script>
+</body>
+</html>
