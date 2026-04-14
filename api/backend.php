@@ -1,47 +1,67 @@
 <?php
 session_start();
 
-// on devrait chercher en DB
-$USERS = [
-    'alice'  => ['password' => 'password123', 'role' => 'admin',   'displayName' => 'Alice O\'Païdèmervaie'],
-    'bob'    => ['password' => 'php8point3',  'role' => 'editor',  'displayName' => 'Bob Morane'],
-    'claire' => ['password' => 'vuejs2026',   'role' => 'viewer',  'displayName' => 'Claire Obscur'],
+$host = 'localhost';
+$db = 'ebus2_projet03_aarr19';
+$user = 'ar62yy13raif';
+$pass = 'a0~p6a?2pa';
+$charset = 'utf8mb4';
+
+$dsn = "mysql:host=$host;dbname=$db;charset=$charset";
+$options = [
+    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
 ];
+try {
+    $pdo = new PDO($dsn, $user, $pass, $options);
+} catch (\PDOException $e) {
+    throw new \PDOException($e->getMessage(), (int)$e->getCode());
+}
 
+
+// On vérifie que c'est bien un envoi de formulaire (POST)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $data = json_decode(file_get_contents("php://input"), true);
+    
+    // On récupère les données envoyées par ton application Vue.js
+    $donnees = json_decode(file_get_contents("php://input"), true);
 
-    if (!isset($data['username']) || !isset($data['password'])) {
-        echo json_encode(['error' => 'Champs manquants']);
-        http_response_code(422);
+    // Vérification : est-ce que les cases sont remplies ?
+    if (empty($donnees['username']) || empty($donnees['password'])) {
+        http_response_code(400);
+        echo json_encode(['message' => 'Oups ! Merci de remplir tous les champs.']);
         exit;
     }
 
-    $username = trim($data['username']);
-    $password = $data['password'];
-    $remember = isset($data['remember']);
+    $pseudo = strtolower(trim($donnees['username']));
+    $mdp = $donnees['password'];
 
-    if (!isset($USERS[$username]) || $USERS[$username]['password'] !== $password) {
-        sleep(1); // Délai volontaire pour limiter le brute-force (incrémental ce serait mieux)
-        echo json_encode(['error' => 'Identifiants incorrects']);
+    // Vérification : est-ce que l'utilisateur existe et le mot de passe est bon ?
+    if (!isset($MEMBRES[$pseudo]) || $MEMBRES[$pseudo]['password'] !== $mdp) { // a modifier avec pdo
+        sleep(1); // Sécurité pour ralentir les robots
         http_response_code(401);
+        echo json_encode(['message' => 'Identifiants Fairpay incorrects.']);
         exit;
     }
-    $user = $USERS[$username];
 
-    $_SESSION['user'] = [
-       'username'    => $username,
-       'displayName' => $user['displayName'],
-       'role'        => $user['role'],
-       'loginAt'     => date('d-m-Y H:i:s'),
+    // Si tout est bon, on crée la session (la connexion reste active)
+    $infosUtilisateur = $MEMBRES[$pseudo]; // a modifier avec pdo
+    
+    $_SESSION['utilisateur'] = [
+       'pseudo' => $pseudo,
+       'nom'    => $infosUtilisateur['nom'],
+       'role'   => $infosUtilisateur['role'],
+       'heure'  => date('H:i')
     ];
-    if ($remember) {
-        // TODO traiter le ...
-    }
-    echo json_encode([
-        'success' => true,
-        'user'    => $_SESSION['user']]);
+
+    // On répond à Vue.js que c'est gagné !
     http_response_code(200);
+    echo json_encode([
+        'connexion' => true,
+        'user'      => $_SESSION['utilisateur']
+    ]);
     exit;
 }
+
+// Si quelqu'un essaie d'accéder au fichier sans envoyer de formulaire
 http_response_code(405);
+echo json_encode(['message' => 'Action non autorisée']);
