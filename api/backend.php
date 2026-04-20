@@ -21,28 +21,29 @@ try {
 
 // On vérifie que c'est bien un envoi de formulaire (POST)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    
+   
     // On récupère les données envoyées par ton application Vue.js
     $donnees = json_decode(file_get_contents("php://input"), true);
 
     // Vérification : est-ce que les cases sont remplies ?
-    if (empty($donnees['username']) || empty($donnees['password'])) {
+    if (empty($donnees['email']) || empty($donnees['password'])) {
         http_response_code(400);
         echo json_encode(['message' => 'Oups ! Merci de remplir tous les champs.']);
         exit;
     }
 
-    $pseudo = strtolower(trim($donnees['username']));
+    $pseudo = strtolower(trim($donnees['email']));
     $mdp = $donnees['password'];
 
     // 1. On cherche l'utilisateur dans la base de données via PDO
-    $stmt = $pdo->prepare('SELECT * FROM users WHERE pseudo = ?');
-    $stmt->execute([$pseudo]);
+
+    $stmt = $pdo->prepare('SELECT * FROM users WHERE email = ?');
+    $stmt->execute([$email]);
     $infosUtilisateur = $stmt->fetch();
 
     // 2. Vérification : l'utilisateur existe-t-il ET le mot de passe est-il valide ?
     // password_verify compare le mot de passe tapé ($mdp) avec le mot de passe crypté de la BDD
-    if (!$infosUtilisateur || !password_verify($mdp, $infosUtilisateur['password'])) { 
+    if (!$infosUtilisateur || !password_verify($mdp, $infosUtilisateur['password'])) {
         sleep(1); // Sécurité pour ralentir les robots
         http_response_code(401);
         echo json_encode(['message' => 'Identifiants Fairpay incorrects.']);
@@ -53,9 +54,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // On ajoute 'id' pour pouvoir identifier l'utilisateur facilement plus tard dans d'autres requêtes
     $_SESSION['utilisateur'] = [
        'id'     => $infosUtilisateur['id'],
-       'pseudo' => $infosUtilisateur['pseudo'],
-       'nom'    => $infosUtilisateur['nom'],
-       'role'   => $infosUtilisateur['role'],
+       'pseudo' => $infosUtilisateur['name'],
+       'nom'    => $infosUtilisateur['email'],
        'heure'  => date('H:i')
     ];
 

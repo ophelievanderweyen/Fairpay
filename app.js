@@ -9,7 +9,15 @@ const app = createApp({
     data() {
         return {
             // 'home' affiche Accueil.js au démarrage
-            currentPage: 'home' 
+            currentPage: 'home',
+            
+            // Variables pour l'authentification
+            isLogin: true,
+            showPassword: false,
+            error: "",
+            currentUser: null,
+            login_form: { email: "", password: "" },
+            register_form: { username: "", email: "", password: "" }
         }
     },
     methods: {
@@ -18,6 +26,62 @@ const app = createApp({
             this.currentPage = page;
             // On remonte en haut de page automatiquement lors du changement
             window.scrollTo(0, 0);
+        },
+
+        // Bascule entre Connexion et Inscription
+        toggleMode() {
+            this.isLogin = !this.isLogin;
+            this.error = "";
+            this.showPassword = false;
+        },
+
+        // JS pour le login 
+        login(event) {
+            this.error = "";
+            fetch('api/backend.php', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: this.login_form.email, password: this.login_form.password })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.connexion) {
+                    this.currentUser = data.user;
+                    this.goTo('home');
+                } else {
+                    this.error = data.message || "Erreur de connexion";
+                }
+            })
+            .catch(e => {
+                this.error = "Erreur de réseau ou serveur";
+            });
+        },
+
+        register(event) {
+            this.error = "";
+            fetch('api/register.php', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    username: this.register_form.username,  
+                    email: this.register_form.email, 
+                    password: this.register_form.password 
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    // On bascule sur le formulaire de connexion et on affiche un message
+                    this.isLogin = true;
+                    this.error = "Inscription réussie ! Vous pouvez vous connecter.";
+                    this.register_form = { username: "", email: "", password: "" };
+                } else {
+                    this.error = data.message || "Erreur lors de l'inscription";
+                }
+            })
+            .catch(e => {
+                this.error = "Erreur de réseau ou serveur";
+            });
         }
     }
 });
