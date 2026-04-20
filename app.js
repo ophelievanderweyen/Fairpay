@@ -2,7 +2,6 @@
  * app.js - Moteur de navigation de Fairpay
  * Gère l'affichage dynamique des composants Accueil et Nouveau
  */
-
 const { createApp } = Vue;
 
 const app = createApp({
