@@ -25,7 +25,7 @@ const app = createApp({
         , login(event) {
         fetch('api/backend.php',
             { method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ username: login_form.email, password: login_form.password })
+              body: JSON.stringify({ username: this.login_form.email, password: this.login_form.password })
             }
         ).then(r => ...)
       }
@@ -36,14 +36,14 @@ const app = createApp({
             method: 'POST', 
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-                username: register_form.username,  
-                email: register_form.email, 
-                password: register_form.password 
+                username: this.register_form.username,  
+                email: this.register_form.email, 
+                password: this.register_form.password 
             })
         }
     ).then(r => r.json()).then(data => {
         if (data.success) {
-            console.log('Inscription OK');
+            fetch('Inscription OK');
         } else {
             this.error = data.message;
         }

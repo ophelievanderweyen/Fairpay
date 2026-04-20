@@ -36,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $mdp = $donnees['password'];
 
     // 1. On cherche l'utilisateur dans la base de données via PDO
-    $stmt = $pdo->prepare('SELECT * FROM users WHERE pseudo = ?');
+    $stmt = $pdo->prepare('SELECT * FROM users WHERE email = ?');
     $stmt->execute([$pseudo]);
     $infosUtilisateur = $stmt->fetch();
 

@@ -18,9 +18,7 @@
     <div id="app">
 
          
-        
-
-
+    
         <template>
   <template v-if="!currentUser">
     <div class="container-fluid p-0 vh-100 d-flex">
@@ -53,7 +51,7 @@
               <label for="login_email" class="form-label text-muted small">Email</label>
               <input
                 id="login_email"
-                v-model="login_form.email"
+                v-model="this.login_form.email"
                 type="email"
                 class="form-control"
                 placeholder="nom@exemple.com"
@@ -66,7 +64,7 @@
               <div class="input-group">
                 <input
                   id="login_pass"
-                  v-model="login_form.password"
+                  v-model="this.login_form.password"
                   :type="showPassword ? 'text' : 'password'"
                   class="form-control"
                   placeholder="••••••••"
@@ -94,7 +92,7 @@
               <label for="register_user" class="form-label text-muted small">Nom d'utilisateur</label>
               <input
                 id="register_user"
-                v-model="register_form.username"
+                v-model="tthis.register_form.username"
                 class="form-control"
                 placeholder="ex: alice"
                 required
@@ -105,7 +103,7 @@
               <label for="register_email" class="form-label text-muted small">Email</label>
               <input
                 id="register_email"
-                v-model="register_form.email"
+                v-model="this.register_form.email"
                 type="email"
                 class="form-control"
                 placeholder="nom@exemple.com"
@@ -118,7 +116,7 @@
               <div class="input-group">
                 <input
                   id="register_pass"
-                  v-model="register_form.password"
+                  v-model="this.register_form.password"
                   :type="showPassword ? 'text' : 'password'"
                   class="form-control"
                   placeholder="••••••••"
