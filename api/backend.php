@@ -21,7 +21,7 @@ try {
 
 // On vérifie que c'est bien un envoi de formulaire (POST)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    
+   
     // On récupère les données envoyées par ton application Vue.js
     $donnees = json_decode(file_get_contents("php://input"), true);
 
@@ -35,19 +35,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $pseudo = strtolower(trim($donnees['username']));
     $mdp = $donnees['password'];
 
-    // Vérification : est-ce que l'utilisateur existe et le mot de passe est bon ?
-    if (!isset($MEMBRES[$pseudo]) || $MEMBRES[$pseudo]['password'] !== $mdp) { // a modifier avec pdo
+    // 1. On cherche l'utilisateur dans la base de données via PDO
+    $stmt = $pdo->prepare('SELECT * FROM users WHERE pseudo = ?');
+    $stmt->execute([$pseudo]);
+    $infosUtilisateur = $stmt->fetch();
+
+    // 2. Vérification : l'utilisateur existe-t-il ET le mot de passe est-il valide ?
+    // password_verify compare le mot de passe tapé ($mdp) avec le mot de passe crypté de la BDD
+    if (!$infosUtilisateur || !password_verify($mdp, $infosUtilisateur['password'])) {
         sleep(1); // Sécurité pour ralentir les robots
         http_response_code(401);
         echo json_encode(['message' => 'Identifiants Fairpay incorrects.']);
         exit;
     }
 
-    // Si tout est bon, on crée la session (la connexion reste active)
-    $infosUtilisateur = $MEMBRES[$pseudo]; // a modifier avec pdo
-    
+    // 3. Si tout est bon, on crée la session (la connexion reste active)
+    // On ajoute 'id' pour pouvoir identifier l'utilisateur facilement plus tard dans d'autres requêtes
     $_SESSION['utilisateur'] = [
-       'pseudo' => $pseudo,
+       'id'     => $infosUtilisateur['id'],
+       'pseudo' => $infosUtilisateur['pseudo'],
        'nom'    => $infosUtilisateur['nom'],
        'role'   => $infosUtilisateur['role'],
        'heure'  => date('H:i')
