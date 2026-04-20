@@ -17,147 +17,211 @@
 
     <div id="app">
 
-         <!-- ============================================== -->
-        <!-- TEMPLATE 1 : NON CONNECTÉ (Login / Inscription) -->
-        <!-- ============================================== -->
-        <!-- v-if="!currentUser" signifie que tout ce bloc HTML n'est affiché que si l'utilisateur N'EST PAS connecté -->
-        <template v-if="!currentUser">
-            <div class="container-fluid p-0 vh-100 d-flex">
-
-                <!-- PARTIE GAUCHE (Design) : Cachée sur mobile, visible sur PC (d-none d-md-flex) -->
-                <div class="login-banner d-none d-md-flex flex-column justify-content-center align-items-center w-50">
-                    <div class="text-center text-white p-5">
-                        <h1 style="font-size: 3.5rem; font-weight: 800; letter-spacing: -1px;">Fairpay</h1>
-                        <p style="font-size: 1.2rem; opacity: 0.9; font-weight: 300;">Gérez vos dépenses de groupe en
-                            toute simplicité. Plus de disputes, juste des comptes justes.</p>
-                        <!-- Une icône géante pour habiller un peu l'application -->
-                        <i class="bi bi-wallet2"
-                            style="font-size: 8rem; opacity: 0.2; margin-top: 30px; display: block;"></i>
-                    </div>
-                </div>
-
-                <!-- PARTIE DROITE (Formulaire) -->
-                <div class="w-100 w-md-50 d-flex justify-content-center align-items-center"
-                    style="background: var(--bg);">
-                    <div class="card p-5 shadow-sm border-0" style="width: 450px; background: var(--card);">
-
-                        <!-- Le titre change dynamiquement selon la variable isLogin -->
-                        <h3 class="text-center mb-4" style="font-weight: 600;">
-                            <span v-if="isLogin">Connexion</span>
-                            <span v-else>Créer un compte</span>
-                        </h3>
-
-                        <!-- Affichage des erreurs si la variable "error" contient du texte -->
-                        <div v-if="error" class="alert alert-danger">{{ error }}</div>
-
-                        <!-- Formulaire intercepté par VueJS : on empêche le rechargement (@submit.prevent) -->
-                        <form action="#" method="POST" @submit.prevent="isLogin ? login() : register()">
-
-                            <!-- Ce champ (Pseudo) n'apparaît que si on est sur le formulaire d'inscription (!isLogin) -->
-                            <div class="mb-3" v-if="!isLogin">
-                                <label for="auth_user" class="form-label text-muted small">Nom d'utilisateur</label>
-                                <input id="auth_user" name="username" v-model="login_form.username" class="form-control"
-                                    placeholder="ex: alice" required>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="auth_email" class="form-label text-muted small">Email</label>
-                                <!-- v-model relie l'input à la variable VueJS (login_form.email) -->
-                                <input id="auth_email" name="email" v-model="login_form.email" type="email"
-                                    class="form-control" placeholder="nom@exemple.com" required>
-                            </div>
-
-                            <div class="mb-4">
-                                <label for="auth_pass" class="form-label text-muted small">Mot de passe</label>
-                                <!-- Utilisation d'un "input-group" Bootstrap pour coller le bouton au champ de texte -->
-                                <div class="input-group">
-                                    <!-- ":type" est dynamique : si showPassword est vrai, on met "text" (visible), sinon "password" (caché) -->
-                                    <input id="auth_pass" name="password" v-model="login_form.password"
-                                        :type="showPassword ? 'text' : 'password'" class="form-control"
-                                        placeholder="••••••••" required>
-                                    <!-- "@click" inverse la valeur de la variable (vrai devient faux, faux devient vrai) -->
-                                    <button class="btn btn-outline-secondary" type="button"
-                                        @click="showPassword = !showPassword"
-                                        style="border-color: var(--border); background: var(--bg); color: var(--text);">
-                                        <!-- Changement d'icône Bootstrap dynamique (œil normal ou barré) -->
-                                        <i class="bi" :class="showPassword ? 'bi-eye-slash' : 'bi-eye'"></i>
-                                    </button>
-                                </div>
-                                <div class="form-text" v-if="!isLogin">Au moins 8 caractères.</div>
-                            </div>
-
-                            <button type="submit" class="btn btn-primary w-100 py-2">
-                                <span v-if="isLogin">Se connecter</span>
-                                <span v-else>S'inscrire</span>
-                            </button>
-                        </form>
-
-                        <!-- Lien pour basculer entre Inscription et Connexion -->
-                        <div class="text-center mt-4">
-                            <span class="text-muted" style="font-size: 0.9em;">
-                                <template v-if="isLogin">Pas encore de compte ?</template>
-                                <template v-else>Déjà un compte ?</template>
-                            </span>
-                            <br>
-                            <!-- Lien très distinct (bleu clair/violet) et souligné au survol -->
-                            <a href="#" class="auth-link" @click.prevent="isLogin = !isLogin">
-                                <template v-if="isLogin">Créer un compte maintenant</template>
-                                <template v-else>Se connecter</template>
-                            </a>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-        </template>
+         
+        
 
 
-        <main class="main-container bg-white shadow-sm">
-            
-            <accueil-page v-if="currentPage === 'home'"></accueil-page>
-            
-            <nouveau-page v-if="currentPage === 'nouveau'"></nouveau-page>
+        <template>
+  <template v-if="!currentUser">
+    <div class="container-fluid p-0 vh-100 d-flex">
 
-            <nouveau-groupe-page v-if="currentPage === 'nouveauGroupe'"></nouveau-groupe-page>
-            
-            <groupes-page v-if="currentPage === 'groupes'"></groupes-page>
-            
-            <div v-if="currentPage === 'profil'" class="p-4 text-dark text-center">
-                <i class="bi bi-person-circle fs-1 text-primary mb-3 d-block"></i>
-                <h5>Mon Profil</h5>
-                <p class="text-muted small">Connectée en tant que "user"</p>
-                <hr>
-                <button class="btn btn-outline-danger btn-sm">Déconnexion</button>
+      <!-- PARTIE GAUCHE -->
+      <div class="login-banner d-none d-md-flex flex-column justify-content-center align-items-center w-50">
+        <div class="text-center text-white p-5">
+          <h1 style="font-size: 3.5rem; font-weight: 800; letter-spacing: -1px;">Fairpay</h1>
+          <p style="font-size: 1.2rem; opacity: 0.9; font-weight: 300;">
+            Gérez vos dépenses de groupe en toute simplicité. Plus de disputes, juste des comptes justes.
+          </p>
+          <i class="bi bi-wallet2" style="font-size: 8rem; opacity: 0.2; margin-top: 30px; display: block;"></i>
+        </div>
+      </div>
+
+      <!-- PARTIE DROITE -->
+      <div class="w-100 w-md-50 d-flex justify-content-center align-items-center" style="background: var(--bg);">
+        <div class="card p-5 shadow-sm border-0" style="width: 450px; background: var(--card);">
+
+          <h3 class="text-center mb-4" style="font-weight: 600;">
+            <span v-if="isLogin">Connexion</span>
+            <span v-else>Créer un compte</span>
+          </h3>
+
+          <div v-if="error" class="alert alert-danger">{{ error }}</div>
+
+          <!-- FORMULAIRE CONNEXION -->
+          <form v-if="isLogin" @submit.prevent="login">
+            <div class="mb-3">
+              <label for="login_email" class="form-label text-muted small">Email</label>
+              <input
+                id="login_email"
+                v-model="login_form.email"
+                type="email"
+                class="form-control"
+                placeholder="nom@exemple.com"
+                required
+              >
             </div>
 
-        </main>
+            <div class="mb-4">
+              <label for="login_pass" class="form-label text-muted small">Mot de passe</label>
+              <div class="input-group">
+                <input
+                  id="login_pass"
+                  v-model="login_form.password"
+                  :type="showPassword ? 'text' : 'password'"
+                  class="form-control"
+                  placeholder="••••••••"
+                  required
+                >
+                <button
+                  class="btn btn-outline-secondary"
+                  type="button"
+                  @click="showPassword = !showPassword"
+                  style="border-color: var(--border); background: var(--bg); color: var(--text);"
+                >
+                  <i class="bi" :class="showPassword ? 'bi-eye-slash' : 'bi-eye'"></i>
+                </button>
+              </div>
+            </div>
 
-        <button v-if="currentPage === 'home'" class="btn btn-primary rounded-circle fab-button shadow" @click="currentPage = 'nouveau'">
-            <i class="bi bi-plus-lg"></i>
-        </button>
+            <button type="submit" class="btn btn-primary w-100 py-2">
+              Se connecter
+            </button>
+          </form>
 
-        <nav class="bottom-nav bg-white border-top shadow">
-            <button class="nav-item" :class="{ 'active': currentPage === 'home' }" @click="currentPage = 'home'">
-                <i class="bi bi-house-door-fill"></i>
-                <span>Accueil</span>
+          <!-- FORMULAIRE INSCRIPTION -->
+          <form v-else @submit.prevent="register">
+            <div class="mb-3">
+              <label for="register_user" class="form-label text-muted small">Nom d'utilisateur</label>
+              <input
+                id="register_user"
+                v-model="register_form.username"
+                class="form-control"
+                placeholder="ex: alice"
+                required
+              >
+            </div>
+
+            <div class="mb-3">
+              <label for="register_email" class="form-label text-muted small">Email</label>
+              <input
+                id="register_email"
+                v-model="register_form.email"
+                type="email"
+                class="form-control"
+                placeholder="nom@exemple.com"
+                required
+              >
+            </div>
+
+            <div class="mb-4">
+              <label for="register_pass" class="form-label text-muted small">Mot de passe</label>
+              <div class="input-group">
+                <input
+                  id="register_pass"
+                  v-model="register_form.password"
+                  :type="showPassword ? 'text' : 'password'"
+                  class="form-control"
+                  placeholder="••••••••"
+                  required
+                >
+                <button
+                  class="btn btn-outline-secondary"
+                  type="button"
+                  @click="showPassword = !showPassword"
+                  style="border-color: var(--border); background: var(--bg); color: var(--text);"
+                >
+                  <i class="bi" :class="showPassword ? 'bi-eye-slash' : 'bi-eye'"></i>
+                </button>
+              </div>
+              <div class="form-text">Au moins 8 caractères.</div>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100 py-2">
+              S'inscrire
             </button>
-            <button class="nav-item" :class="{ 'active': currentPage === 'groupes' || currentPage === 'nouveauGroupe' }" @click="currentPage = 'groupes'">
-                <i class="bi bi-collection-fill"></i>
-                <span>Groupes</span>
-            </button>
-            <button class="nav-item" :class="{ 'active': currentPage === 'profil' }" @click="currentPage = 'profil'">
-                <i class="bi bi-person-fill"></i>
-                <span>Profil</span>
-            </button>
-        </nav>
+          </form>
+
+          <!-- SWITCH -->
+          <div class="text-center mt-4">
+            <span class="text-muted" style="font-size: 0.9em;">
+              <template v-if="isLogin">Pas encore de compte ?</template>
+              <template v-else>Déjà un compte ?</template>
+            </span>
+            <br>
+            <a href="#" class="auth-link" @click.prevent="toggleMode">
+              <template v-if="isLogin">Créer un compte maintenant</template>
+              <template v-else>Se connecter</template>
+            </a>
+          </div>
+
+        </div>
+      </div>
     </div>
+  </template>
+</template>
 
-    <script src="components/Accueil.js"></script>
-    <script src="components/Nouveau.js"></script>
-    <script src="components/NouveauGroupe.js"></script> 
-    <script src="components/Groupes.js"></script>
-    
+<script>
+export default {
+  name: "AuthPage",
+  data() {
+    return {
+      isLogin: true,
+      showPassword: false,
+      error: "",
+      currentUser: null,
 
-    <script src="app.js"></script>
-</body>
-</html>
+      login_form: {
+        email: "",
+        password: "",
+      },
+
+      register_form: {
+        username: "",
+        email: "",
+        password: "",
+      },
+    };
+  },
+  methods: {
+    toggleMode() {
+      this.isLogin = !this.isLogin;
+      this.error = "";
+      this.showPassword = false;
+    },
+
+    async login() {
+      this.error = "";
+      try {
+        console.log("Login:", this.login_form);
+      } catch (e) {
+        this.error = "Erreur lors de la connexion.";
+      }
+    },
+
+    async register() {
+      this.error = "";
+      try {
+        console.log("Register:", this.register_form);
+      } catch (e) {
+        this.error = "Erreur lors de l'inscription.";
+      }
+    },
+  },
+};
+</script>
+
+<style scoped>
+.login-banner {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #6f42c1, #4f46e5);
+}
+
+.auth-link {
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.auth-link:hover {
+  text-decoration: underline;
+}
+</style>
