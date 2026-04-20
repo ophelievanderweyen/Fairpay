@@ -41,7 +41,7 @@ const app = createApp({
             fetch('api/backend.php', { 
                 method: 'POST', 
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: this.login_form.email, password: this.login_form.password })
+                body: JSON.stringify({ email:login_form.email, password: login_form.password })
             })
             .then(r => r.json())
             .then(data => {
@@ -63,9 +63,9 @@ const app = createApp({
                 method: 'POST', 
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
-                    username: this.register_form.username,  
-                    email: this.register_form.email, 
-                    password: this.register_form.password 
+                    username: register_form.username,  
+                    email: register_form.email, 
+                    password: register_form.password 
                 })
             })
             .then(r => r.json())
