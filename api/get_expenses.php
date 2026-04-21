@@ -1,5 +1,5 @@
 <?php
-include ("securite.php")
+include ("securite.php");
 // api/get_expenses.php
 include_once 'config/db_access.php';
 

@@ -1,5 +1,5 @@
 <?php
-include ("securite.php")
+include ("securite.php");
 
 header('Content-Type: application/json'); // On indique que la réponse renvoyée sera du JSON
 
