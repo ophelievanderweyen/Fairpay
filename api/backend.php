@@ -1,6 +1,9 @@
 <?php
 session_start();
 
+// ------------------------------
+// CONFIGURATION DE LA BDD
+// ------------------------------
 $host = 'localhost';
 $db = 'ebus2_projet03_aarr19';
 $user = 'ar62yy13raif';
@@ -12,12 +15,19 @@ $options = [
     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
 ];
+
+// Connexion à la base de données
 try {
     $pdo = new PDO($dsn, $user, $pass, $options);
 } catch (\PDOException $e) {
-    throw new \PDOException($e->getMessage(), (int)$e->getCode());
+    http_response_code(500);
+    echo json_encode(['message' => 'Erreur de connexion à la base de données.']);
+    exit;
 }
 
+// ------------------------------
+// VÉRIFICATION DE LA CONNEXION
+// ------------------------------
 
 // On vérifie que c'est bien un envoi de formulaire (POST)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -32,11 +42,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    $pseudo = strtolower(trim($donnees['email']));
+    // CORRECTION ICI : On stocke l'email dans la bonne variable
+    $email = strtolower(trim($donnees['email']));
     $mdp = $donnees['password'];
 
     // 1. On cherche l'utilisateur dans la base de données via PDO
-
     $stmt = $pdo->prepare('SELECT * FROM users WHERE email = ?');
     $stmt->execute([$email]);
     $infosUtilisateur = $stmt->fetch();
@@ -44,7 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // 2. Vérification : l'utilisateur existe-t-il ET le mot de passe est-il valide ?
     // password_verify compare le mot de passe tapé ($mdp) avec le mot de passe crypté de la BDD
     if (!$infosUtilisateur || !password_verify($mdp, $infosUtilisateur['password'])) {
-        sleep(1); // Sécurité pour ralentir les robots
+        sleep(1); // Sécurité pour ralentir les attaques par force brute
         http_response_code(401);
         echo json_encode(['message' => 'Identifiants Fairpay incorrects.']);
         exit;
@@ -68,6 +78,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-// Si quelqu'un essaie d'accéder au fichier sans envoyer de formulaire
+// Si quelqu'un essaie d'accéder au fichier sans envoyer de formulaire via POST
 http_response_code(405);
 echo json_encode(['message' => 'Action non autorisée']);
