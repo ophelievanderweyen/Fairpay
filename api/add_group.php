@@ -1,4 +1,5 @@
 <?php
+include ("securite.php")
 // api/add_group.php
 include_once 'config/db_access.php';
 

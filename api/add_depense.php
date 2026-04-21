@@ -1,4 +1,5 @@
 <?php
+include ("securite.php") //
 include_once 'config/db_access.php'; // Vérifie que le chemin est bon !
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {

@@ -1,4 +1,5 @@
 <?php
+include ("securite.php")
 // api/get_groups.php
 include_once 'config/db_access.php';
 
@@ -13,4 +14,18 @@ try {
 } catch(PDOException $e) {
     echo json_encode(["error" => $e->getMessage()]);
 }
+
+try { // ceci devrait aller dans une fonction
+    $sql = "INSERT * FROM `groups` ORDER BY created_at DESC";
+    $stmt = $connexion->prepare($sql);
+    $stmt->execute();
+    $groups = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    header('Content-Type: application/json');
+    echo json_encode($groups);
+}
+
+$_SESSION['utilisateur']['id'], // syntaxe pr lire l utilisateur
+
+
 ?>
