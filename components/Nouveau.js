@@ -14,7 +14,7 @@ const NouveauPage = {
             </div>
 
             <div class="light-card">
-                <form method="POST" action="api/add_depense.php">
+                <form method="POST" action="api/backend.php?action=add_depense">
                     
                     <div class="mb-3">
                         <label class="form-label text-muted fw-bold" style="font-size: 13px;">Dans quel groupe ?</label>
@@ -68,7 +68,7 @@ const NouveauPage = {
     `,
     mounted() {
         // Dès qu'on arrive sur la page, on demande la liste des groupes à l'API
-        fetch('api/get_groups.php')
+        fetch('api/backend.php?action=get_groups')
             .then(res => res.json())
             .then(data => {
                 this.groups = data;

@@ -37,7 +37,7 @@ const AccueilPage = {
     },
     methods: {
         fetchExpenses() {
-            fetch('api/get_expenses.php')
+            fetch('api/backend.php?action=get_expenses')
                 .then(response => response.json())
                 .then(data => {
                     this.expenses = data;

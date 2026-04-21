@@ -6,7 +6,7 @@ const NouveauGroupePage = {
                 <h4 class="fw-bold mb-0">Créer un groupe</h4>
             </div>
             <div class="light-card">
-                <form method="POST" action="api/add_group.php">
+                <form method="POST" action="api/backend.php?action=add_group">
                     <div class="mb-3">
                         <label class="form-label small fw-bold text-muted">NOM DU GROUPE</label>
                         <input type="text" name="name" class="form-control" placeholder="Ex: Coloc 2026" required>

@@ -35,14 +35,14 @@ const GroupesPage = {
     },
     methods: {
         fetchGroups() {
-            fetch('api/get_groups.php').then(res => res.json()).then(data => { this.groups = data; });
+            fetch('api/backend.php?action=get_groups').then(res => res.json()).then(data => { this.groups = data; });
         },
         deleteGroup(id) {
             if(confirm("Supprimer ce groupe ?")) {
                 const formData = new FormData();
                 formData.append('id', id);
 
-                fetch('api/delete_group.php', {
+                fetch('api/backend.php?action=delete_group', {
                     method: 'POST',
                     body: formData
                 })
