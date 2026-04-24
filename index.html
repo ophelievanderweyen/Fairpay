@@ -38,11 +38,20 @@
 
 <body class="bg-light">
 
+    <!-- =====================================================================================
+         DÉBUT DE L'APPLICATION VUE 
+         Tout ce qui est à l'intérieur de cette <div id="app"> est contrôlé par Vue.js (app.js)
+         ===================================================================================== -->
     <div id="app" v-cloak>
 
+        <!-- =================================================================================
+             1ÈRE PARTIE : ZONE DE CONNEXION / INSCRIPTION
+             S'affiche UNIQUEMENT si l'utilisateur n'est pas connecté (v-if="!currentUser")
+             ================================================================================= -->
         <div v-if="!currentUser">
             <div class="container-fluid p-0 vh-100 d-flex flex-column flex-md-row">
 
+                <!-- Bannière visuelle à gauche (masquée sur mobile, visible sur PC) -->
                 <div class="login-banner d-none d-md-flex flex-column justify-content-center align-items-center w-50">
                     <div class="text-center text-white p-5">
                         <h1 style="font-size: 3.5rem; font-weight: 800; letter-spacing: -1px;">Fairpay</h1>
@@ -54,19 +63,30 @@
                     </div>
                 </div>
 
+                <!-- Zone du formulaire à droite (ou au centre sur mobile) -->
                 <div class="w-100 w-md-50 d-flex justify-content-center align-items-center bg-white">
                     <div class="card p-4 p-md-5 border-0" style="max-width: 450px; width: 100%;">
 
+                        <!-- Titre dynamique : change selon si on est en mode Connexion ou Inscription -->
                         <h3 class="text-center mb-4" style="font-weight: 600;">
                             <span v-if="isLogin">Connexion</span>
                             <span v-else>Créer un compte</span>
                         </h3>
 
+                        <!-- Affichage des messages d'erreur s'il y en a -->
                         <div v-if="error" class="alert alert-danger">{{ error }}</div>
 
+                        <!-- 
+                           =============================================================
+                           FORMULAIRE DE CONNEXION
+                           @submit.prevent="login" = empêche le rechargement de la page
+                           et appelle la fonction login() de app.js lors du clic sur Envoyer
+                           ============================================================= 
+                        -->
                         <form v-if="isLogin" @submit.prevent="login">
                             <div class="mb-3">
                                 <label class="form-label text-muted small">Email</label>
+                                <!-- v-model relie la valeur de l'input à la variable "login_form.email" dans app.js -->
                                 <input v-model="login_form.email" type="email" class="form-control"
                                     placeholder="nom@exemple.com" required>
                             </div>
@@ -75,6 +95,7 @@
                                 <div class="input-group">
                                     <input v-model="login_form.password" :type="showPassword ? 'text' : 'password'"
                                         class="form-control" placeholder="••••••••" required>
+                                    <!-- Bouton pour afficher/masquer le mot de passe en inversant le "showPassword" -->
                                     <button class="btn btn-outline-secondary" type="button"
                                         @click="showPassword = !showPassword">
                                         <i class="bi" :class="showPassword ? 'bi-eye-slash' : 'bi-eye'"></i>
@@ -84,6 +105,12 @@
                             <button type="submit" class="btn btn-primary-custom w-100 py-2">Se connecter</button>
                         </form>
 
+                        <!-- 
+                           =============================================================
+                           FORMULAIRE D'INSCRIPTION
+                           S'affiche si on n'est pas en mode connexion (v-else)
+                           ============================================================= 
+                        -->
                         <form v-else @submit.prevent="register">
                             <div class="mb-3">
                                 <label class="form-label text-muted small">Nom d'utilisateur</label>
@@ -109,11 +136,13 @@
                             <button type="submit" class="btn btn-primary-custom w-100 py-2">S'inscrire</button>
                         </form>
 
+                        <!-- Lien pour basculer entre la connexion et l'inscription -->
                         <div class="text-center mt-4">
                             <span class="text-muted small">
                                 {{ isLogin ? "Pas encore de compte ?" : "Déjà un compte ?" }}
                             </span>
                             <br>
+                            <!-- @click="toggleMode" appelle la fonction toggleMode() dans app.js -->
                             <a class="auth-link text-primary" @click="toggleMode">
                                 {{ isLogin ? "Créer un compte maintenant" : "Se connecter" }}
                             </a>
@@ -123,31 +152,49 @@
             </div>
         </div>
 
+        <!-- =================================================================================
+             2ÈME PARTIE : ZONE PRINCIPALE DE L'APPLICATION (CONNECTÉ)
+             S'affiche UNIQUEMENT si l'utilisateur EST connecté (v-else correspond au v-if="!currentUser")
+             ================================================================================= -->
         <div v-else>
             <main class="main-container bg-white shadow-sm">
 
+                <!-- 
+                   Ici, on gère l'affichage dynamique (comme un système d'onglets).
+                   Si la variable "currentPage" (dans app.js) vaut "home", alors on charge la page d'accueil.
+                   Sinon, on charge le composant qui correspond à la valeur de "currentPage".
+                -->
                 <accueil-page v-if="currentPage === 'home'"></accueil-page>
                 <groupes-page v-if="currentPage === 'groupes'"></groupes-page>
-
                 <nouveau-page v-if="currentPage === 'nouveau'"></nouveau-page>
                 <nouveau-groupe-page v-if="currentPage === 'nouveauGroupe'"></nouveau-groupe-page>
                 <edit-expense-page v-if="currentPage === 'editExpense'"></edit-expense-page>
                 <select-group-page v-if="currentPage === 'selectGroup'"></select-group-page>
 
+                <!-- Page Profil (Codée directement ici au lieu d'un composant séparé) -->
                 <div v-if="currentPage === 'profil'" class="p-4 text-dark text-center">
                     <i class="bi bi-person-circle fs-1 text-primary mb-3 d-block"></i>
                     <h5>Mon Profil</h5>
                     <p class="text-muted small">Connectée en tant que {{ currentUser.pseudo }}</p>
                     <hr>
+                    <!-- Ce bouton passe currentUser à null, ce qui nous ramène direct à l'écran de connexion -->
                     <button class="btn btn-outline-danger btn-sm" @click="currentUser = null">Déconnexion</button>
                 </div>
             </main>
 
+            <!-- Bouton flottant (FAB) pour ajouter une nouvelle dépense -->
             <button v-if="currentPage === 'home'" class="fab-button" @click="currentPage = 'nouveau'">
                 <i class="bi bi-plus-lg"></i>
             </button>
 
+            <!-- =================================================================================
+                 MENU DE NAVIGATION DU BAS (BARRE DES TÂCHES)
+                 ================================================================================= -->
             <nav class="bottom-nav">
+                <!-- 
+                   :class="{ 'active': ... }" ajoute la classe CSS 'active' (pour colorer l'icône) 
+                   si on se trouve sur la bonne page.
+                -->
                 <button class="nav-item" :class="{ 'active': currentPage === 'home' }" @click="currentPage = 'home'">
                     <i class="bi bi-house-door-fill"></i>
                     <span>Accueil</span>
