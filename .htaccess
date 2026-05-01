@@ -4,3 +4,9 @@ Header always set Content-Security-Policy: "default-src 'self' 'unsafe-inline' '
     font-src 'self' https://cdn.jsdelivr.net; \
     script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; \
     connect-src 'self' https://cdn.jsdelivr.net;"
+
+# Force le navigateur à TOUJOURS utiliser HTTPS pendant 1 an (31536000 secondes), incluant les sous-domaines
+Header always set Strict-Transport-Security: "max-age=31536000; includeSubDomains"
+
+# Empêche le navigateur de "deviner" le type de fichier (évite les attaques où un fichier pirate se déguise)
+Header always set X-Content-Type-Options: "nosniff"

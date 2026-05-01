@@ -9,10 +9,26 @@
 ini_set('session.cookie_httponly', 1);
 ini_set('session.cookie_secure', 1);
 ini_set('session.cookie_samesite', 'Strict');
+ini_set('session.cookie_lifetime', 120); // 120 secondes, selon le code du cours
 session_start(); // On démarre la session pour pouvoir stocker les infos de l'utilisateur
 
 if (!empty($_SERVER['HTTPS'])) {
     header("Strict-Transport-Security: max-age=31536000");
+}
+
+/* =========================================================================
+   CORS ET HEADERS DE SÉCURITÉ SUPPLÉMENTAIRES
+   =========================================================================
+*/
+require_once 'cors-api.php';
+// On appelle la fonction de configuration CORS du prof (dev mode à true, refuse les autres origines par défaut, pas de debug)
+$host = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'localhost');
+add_headers_origin($host, true, false, false);
+
+// Si c'est juste une requête OPTIONS (Preflight pour CORS), on arrête ici avec 200 OK
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
 }
 
 /* =========================================================================
@@ -197,12 +213,16 @@ switch ($action) {
        ------------------------------------------------------------------------- */
     case 'add_depense':
         if ($_SERVER["REQUEST_METHOD"] == "POST") {
-            // Récupération des données du formulaire
-            $group_id = $_POST['group_id'] ?? 1;
-            $payer_id = $_POST['payer_id'] ?? 1;
-            $amount   = $_POST['amount']   ?? 0;
-            $reason   = $_POST['reason']   ?? 'Sans motif';
-            $date     = $_POST['expense_date'] ?? date('Y-m-d');
+            // Récupération des données du formulaire avec nettoyage (XSS et types)
+            // EXPLICATION SÉCURITÉ :
+            // 1. intval() : Force la donnée à être un nombre entier. Si un pirate envoie du texte ou du code SQL, ça deviendra un simple 0.
+            // 2. floatval() : Idem, mais pour les nombres à virgule (les montants).
+            // 3. htmlspecialchars() : Convertit les caractères spéciaux (comme < ou >) en entités inoffensives (&lt;, &gt;). Cela empêche un attaquant d'injecter du code Javascript (Faille XSS).
+            $group_id = intval($_POST['group_id'] ?? 1);
+            $payer_id = intval($_POST['payer_id'] ?? 1);
+            $amount   = floatval($_POST['amount'] ?? 0);
+            $reason   = htmlspecialchars($_POST['reason'] ?? 'Sans motif');
+            $date     = htmlspecialchars($_POST['expense_date'] ?? date('Y-m-d'));
 
             try {
                 // Insertion dans la table des dépenses
