@@ -6,37 +6,45 @@
    maintiennent l'utilisateur connecté) sont sécurisés et ne peuvent pas 
    être volés par des scripts malveillants.
 */
-ini_set('session.cookie_httponly', 1);
-ini_set('session.cookie_secure', 1);
-ini_set('session.cookie_samesite', 'Strict');
+
+// Ces réglages ini_set() contrôlent comment PHP envoie et sécurise le cookie qui contient l’identifiant de session.
+ini_set('session.cookie_httponly', 1); // empêche JavaScript d’accéder au cookie (injection JS= Les injections JS désignent le fait d’insérer du code JavaScript malveillant dans une page web pour qu’il s’exécute dans le navigateur d’une victime)
+ini_set('session.cookie_secure', 1); // le cookie n’est envoyé que via HTTPS
+ini_set('session.cookie_samesite', 'Strict'); // aide à réduire les attaques CSRF, avec des valeurs comme Strict
 ini_set('session.cookie_lifetime', 120); // 120 secondes, selon le code du cours
 session_start(); // On démarre la session pour pouvoir stocker les infos de l'utilisateur
 
-if (!empty($_SERVER['HTTPS'])) {
-    header("Strict-Transport-Security: max-age=31536000");
+//  elle dit au navigateur “à partir de maintenant, utilise HTTPS pour ce site”
+if (!empty($_SERVER['HTTPS'])) { // vérifie si la connexion actuelle est en HTTPS.
+    header("Strict-Transport-Security: max-age=31536000"); // envoie un en-tête HTTP au navigateur pour lui dire de mémoriser cette règle pendant 31536000 secondes, soit environ 1 an.
 }
 
 /* =========================================================================
    CORS ET HEADERS DE SÉCURITÉ SUPPLÉMENTAIRES
    =========================================================================
 */
-require_once 'cors-api.php';
+
+// require_once est utilisé pour les fichiers essentiels car il arrête le script en cas d’erreur
+require_once 'cors-api.php'; // charge le fichier cors
 // On appelle la fonction de configuration CORS du prof (dev mode à true, refuse les autres origines par défaut, pas de debug)
 $host = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'localhost');
-add_headers_origin($host, true, false, false);
+add_headers_origin($host, true, false, false);// autorise cette origine précise”, avec des options de sécurité activées selon les paramètres passés.
 
 // Si c'est juste une requête OPTIONS (Preflight pour CORS), on arrête ici avec 200 OK
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { // Qu’est-ce que j’ai le droit de faire ici ?
+    http_response_code(200); // Oui, c’est bon, tu peux continuer
     exit;
 }
+
+// => qd un navigateur envoie une requete il utilise GET (ex: afficher une page) pour recuperer des données ou POST pour envoyer des donner (ex: formulaire)
+
 
 /* =========================================================================
    ÉTAPE 2 : CONNEXION À LA BASE DE DONNÉES
    ========================================================================= 
    On inclut le fichier qui contient la variable $connexion (accès à la BDD).
 */
-include_once 'config/db_access.php';
+include_once 'config/db_access.php'; // include_once permet de continuer l’exécution même si le fichier est absent.
 
 /* =========================================================================
    ÉTAPE 3 : DÉTERMINATION DE L'ACTION À EFFECTUER
@@ -44,16 +52,17 @@ include_once 'config/db_access.php';
    Le frontend envoie ses requêtes vers "backend.php?action=quelqueChose".
    Ici, on regarde quelle "action" a été demandée.
 */
-$action = $_GET['action'] ?? '';
+$action = $_GET['action'] ?? ''; 
+// le get récupère les données, le [action] veut dire que on prend la  valeur de action et ?? '' → opérateur “si ça n’existe pas, mets une valeur par défaut”
 
 // Si aucune action n'est dans l'URL mais qu'on reçoit des données JSON (POST),
 // on essaie de deviner si c'est une connexion (login) ou une inscription (register).
 if ($action === '' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $raw_input = file_get_contents("php://input"); // On lit les données envoyées
     $donnees = json_decode($raw_input, true);      // On les transforme en tableau PHP
-    if (is_array($donnees)) {
+    if (is_array($donnees)) { // On vérifie que les données sont valides (bien converties en tableau)
         if (isset($donnees['username'])) {
-            $action = 'register'; // S'il y a un username, c'est une inscription
+            $action = 'register'; // S'il y a un username, on considère que c'est une inscription
         } elseif (isset($donnees['email']) && isset($donnees['password'])) {
             $action = 'login';    // S'il n'y a que email et mot de passe, c'est une connexion
         }
@@ -73,14 +82,16 @@ switch ($action) {
        ------------------------------------------------------------------------- */
     case 'login':
         // 1. Vérification de la méthode d'envoi (doit être POST)
+        // On utilise json_encode pour envoyer une réponse structurée en JSON au frontend, car JavaScript attend ce format pour pouvoir traiter les messages correctement.
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             http_response_code(405);
-            echo json_encode(['message' => 'Action non autorisée']);
+            echo json_encode(['message' => 'Action non autorisée']); // Si ce n'est pas le cas, on refuse l'accès
             exit;
-        }
+        } 
 
         // 2. Récupération des données envoyées par le frontend
         $donnees = json_decode(file_get_contents("php://input"), true);
+        // // Vérifie que les champs obligatoires sont remplis
         if (empty($donnees['email']) || empty($donnees['password'])) {
             http_response_code(400);
             echo json_encode(['message' => 'Oups ! Merci de remplir tous les champs.']);
@@ -91,16 +102,24 @@ switch ($action) {
         $email = strtolower(trim($donnees['email']));
         $mdp = $donnees['password'];
 
+
         // 4. Recherche de l'utilisateur dans la base de données
-        $stmt = $connexion->prepare('SELECT * FROM users WHERE email = ?');
-        $stmt->execute([$email]);
-        $infosUtilisateur = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        // $stmt : C’est une variable qui contient une requête SQL préparée, mais pas encore exécutée.
+        $stmt = $connexion->prepare('SELECT * FROM users WHERE email = ?'); // Prépare une requête sécurisée pour éviter les injections SQL
+        $stmt->execute([$email]); // Exécute la requête avec l'email fourni
+        $infosUtilisateur = $stmt->fetch(PDO::FETCH_ASSOC); // // Récupère les informations de l'utilisateur (sous forme de tableau associatif)
+        // PDO = Méthode PHP  pour communiquer avec une base de données de manière sécurisée.
+        // Elle évie lesw injections SQL et fonctionne avec plusieurs types de bases
+
+        //=> prepare - execute - fetch (cycle complet) : 1. ecrire la requete 2. injecter la valeur 3. récupérer le resultat
+
 
         // 5. Vérification du mot de passe
         // password_verify vérifie si le mot de passe tapé correspond à celui haché en BDD
         if (!$infosUtilisateur || !password_verify($mdp, $infosUtilisateur['password'])) {
             sleep(1); // Ralentit les attaques par force brute (petite sécurité)
-            http_response_code(401);
+            http_response_code(401); // ca dit au frontend que la connexion est refusé
             echo json_encode(['message' => 'Identifiants Fairpay incorrects.']);
             exit;
         }
@@ -124,8 +143,8 @@ switch ($action) {
     /* -------------------------------------------------------------------------
        ACTION : INSCRIPTION (REGISTER)
        ------------------------------------------------------------------------- */
-    case 'register':
-        header('Content-Type: application/json');
+    case 'register': // Si l’action demandée est register (inscription), exécute ce bloc de code
+        header('Content-Type: application/json');  //La réponse que je vais t’envoyer est en JSON
         
         // 1. Vérification que c'est bien une requête POST
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
