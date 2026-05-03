@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Fairpay - Gestion de dépenses</title>
+    <link rel="icon" type="image/png" href="img/Logo.png">
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
@@ -16,7 +17,7 @@
     <style>
         .login-banner {
             min-height: 100vh;
-            background: linear-gradient(135deg, #6f42c1, #4f46e5);
+            background: linear-gradient(135deg, #2d3272, #4361ee); /* Navy-indigo → Indigo */
         }
 
         .auth-link {
@@ -58,8 +59,9 @@
                         <p style="font-size: 1.2rem; opacity: 0.9; font-weight: 300;">
                             Gérez vos dépenses de groupe en toute simplicité.
                         </p>
-                        <i class="bi bi-wallet2"
-                            style="font-size: 8rem; opacity: 0.2; margin-top: 30px; display: block;"></i>
+                        <!-- Logo remplace l'ancienne icône bi-wallet2 -->
+                        <img src="img/Logo.png" alt=""
+                             style="height: 120px; filter: brightness(0) invert(1); opacity: 0.25; margin-top: 30px; display: block; margin-left: auto; margin-right: auto;">
                     </div>
                 </div>
 
@@ -156,61 +158,109 @@
              2ÈME PARTIE : ZONE PRINCIPALE DE L'APPLICATION (CONNECTÉ)
              S'affiche UNIQUEMENT si l'utilisateur EST connecté (v-else correspond au v-if="!currentUser")
              ================================================================================= -->
-        <div v-else>
-            <main class="main-container bg-white shadow-sm">
-
-                <!-- 
-                   Ici, on gère l'affichage dynamique (comme un système d'onglets).
-                   Si la variable "currentPage" (dans app.js) vaut "home", alors on charge la page d'accueil.
-                   Sinon, on charge le composant qui correspond à la valeur de "currentPage".
-                -->
-                <accueil-page v-if="currentPage === 'home'"></accueil-page>
-                <groupes-page v-if="currentPage === 'groupes'"></groupes-page>
-                <nouveau-page v-if="currentPage === 'nouveau'"></nouveau-page>
-                <nouveau-groupe-page v-if="currentPage === 'nouveauGroupe'"></nouveau-groupe-page>
-                <edit-expense-page v-if="currentPage === 'editExpense'"></edit-expense-page>
-                <select-group-page v-if="currentPage === 'selectGroup'"></select-group-page>
-
-                <!-- Page Profil (Codée directement ici au lieu d'un composant séparé) -->
-                <div v-if="currentPage === 'profil'" class="p-4 text-dark text-center">
-                    <i class="bi bi-person-circle fs-1 text-primary mb-3 d-block"></i>
-                    <h5>Mon Profil</h5>
-                    <p class="text-muted small">Connectée en tant que {{ currentUser.pseudo }}</p>
-                    <hr>
-                    <!-- Ce bouton passe currentUser à null, ce qui nous ramène direct à l'écran de connexion -->
-                    <button class="btn btn-outline-danger btn-sm" @click="currentUser = null">Déconnexion</button>
-                </div>
-            </main>
-
-            <!-- Bouton flottant (FAB) pour ajouter une nouvelle dépense -->
-            <button v-if="currentPage === 'home'" class="fab-button" @click="currentPage = 'nouveau'">
-                <i class="bi bi-plus-lg"></i>
-            </button>
+        <div v-else class="app-layout">
 
             <!-- =================================================================================
-                 MENU DE NAVIGATION DU BAS (BARRE DES TÂCHES)
+                 BARRE LATÉRALE GAUCHE — visible uniquement sur desktop (≥ 992px)
+                 Les boutons appellent goTo() d'app.js pour changer currentPage
                  ================================================================================= -->
-            <nav class="bottom-nav">
-                <!-- 
-                   :class="{ 'active': ... }" ajoute la classe CSS 'active' (pour colorer l'icône) 
-                   si on se trouve sur la bonne page.
-                -->
-                <button class="nav-item" :class="{ 'active': currentPage === 'home' }" @click="currentPage = 'home'">
-                    <i class="bi bi-house-door-fill"></i>
-                    <span>Accueil</span>
+            <aside class="sidebar d-none d-lg-flex flex-column">
+                <div class="sidebar-logo">
+                    <!-- Logo remplace l'icône wallet, le texte Fairpay reste à côté -->
+                    <img src="img/Logo.png" alt="" style="height: 32px; filter: brightness(0) invert(1);">
+                    <span class="fw-bold fs-5 ms-2" style="color: white;">Fairpay</span>
+                </div>
+                <nav class="sidebar-nav flex-grow-1">
+                    <!-- :class ajoute "active" si currentPage correspond → CSS colore le bouton actif -->
+                    <button class="sidebar-item" :class="{ active: currentPage === 'home' }" @click="goTo('home')">
+                        <i class="bi bi-grid-fill"></i> <span>Tableau de bord</span>
+                    </button>
+                    <button class="sidebar-item" :class="{ active: currentPage === 'groupes' || currentPage === 'nouveauGroupe' }" @click="goTo('groupes')">
+                        <i class="bi bi-collection-fill"></i> <span>Groupes</span>
+                    </button>
+                    <button class="sidebar-item" :class="{ active: currentPage === 'nouveau' }" @click="goTo('nouveau')">
+                        <i class="bi bi-plus-circle-fill"></i> <span>Nouvelle dépense</span>
+                    </button>
+                    <button class="sidebar-item" :class="{ active: currentPage === 'profil' }" @click="goTo('profil')">
+                        <i class="bi bi-person-fill"></i> <span>Profil</span>
+                    </button>
+                </nav>
+                <div class="sidebar-help">
+                    <i class="bi bi-question-circle-fill text-primary fs-5"></i>
+                    <div class="ms-2">
+                        <p class="fw-bold mb-0 small">Besoin d'aide ?</p>
+                        <p class="text-muted mb-0" style="font-size:11px;">Contactez votre équipe</p>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- =================================================================================
+                 ZONE DE CONTENU PRINCIPAL
+                 Sur desktop : décalée de 240px (sidebar) via CSS .content-area
+                 Sur mobile  : pleine largeur + bottom-nav + FAB
+                 ================================================================================= -->
+            <div class="content-area">
+                <main class="main-container">
+                    <!--
+                       Affichage dynamique : currentPage détermine quel composant est visible.
+                       Flux descendant : currentUser est transmis à accueil-page via la prop :current-user
+                    -->
+                    <accueil-page v-if="currentPage === 'home'" :current-user="currentUser"></accueil-page>
+                    <groupes-page v-if="currentPage === 'groupes'"></groupes-page>
+                    <nouveau-page v-if="currentPage === 'nouveau'"></nouveau-page>
+                    <nouveau-groupe-page v-if="currentPage === 'nouveauGroupe'"></nouveau-groupe-page>
+                    <edit-expense-page v-if="currentPage === 'editExpense'"></edit-expense-page>
+
+                    <div v-if="currentPage === 'profil'" class="p-4 text-dark text-center">
+                        <i class="bi bi-person-circle fs-1 text-primary mb-3 d-block"></i>
+                        <h5>Mon Profil</h5>
+                        <p class="text-muted small">Connectée en tant que {{ currentUser.pseudo }}</p>
+                        <hr>
+                        <!-- Ce bouton passe currentUser à null → retour à l'écran de connexion -->
+                        <button class="btn btn-outline-danger btn-sm" @click="currentUser = null">Déconnexion</button>
+                    </div>
+                </main>
+
+                <!-- Bouton flottant (mobile uniquement, caché sur desktop via d-lg-none) -->
+                <button v-if="currentPage === 'home'" class="fab-button d-lg-none" @click="currentPage = 'nouveau'">
+                    <i class="bi bi-plus-lg"></i>
                 </button>
-                <button class="nav-item"
-                    :class="{ 'active': currentPage === 'groupes' || currentPage === 'nouveauGroupe' }"
-                    @click="currentPage = 'groupes'">
-                    <i class="bi bi-collection-fill"></i>
-                    <span>Groupes</span>
-                </button>
-                <button class="nav-item" :class="{ 'active': currentPage === 'profil' }"
-                    @click="currentPage = 'profil'">
-                    <i class="bi bi-person-fill"></i>
-                    <span>Profil</span>
-                </button>
-            </nav>
+
+                <!-- Barre de navigation mobile (cachée sur desktop via d-lg-none) -->
+                <nav class="bottom-nav d-lg-none">
+                    <button class="nav-item" :class="{ 'active': currentPage === 'home' }" @click="currentPage = 'home'">
+                        <i class="bi bi-house-door-fill"></i>
+                        <span>Accueil</span>
+                    </button>
+                    <button class="nav-item" :class="{ 'active': currentPage === 'groupes' || currentPage === 'nouveauGroupe' }" @click="currentPage = 'groupes'">
+                        <i class="bi bi-collection-fill"></i>
+                        <span>Groupes</span>
+                    </button>
+                    <button class="nav-item" :class="{ 'active': currentPage === 'profil' }" @click="currentPage = 'profil'">
+                        <i class="bi bi-person-fill"></i>
+                        <span>Profil</span>
+                    </button>
+                </nav>
+            </div>
+        </div>
+
+        <!-- TOASTS : notifications flottantes en haut à droite -->
+        <!-- Flux : app.js.showToast() → toasts[] → v-for affiche chaque message 3 secondes -->
+        <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999;">
+            <div v-for="toast in toasts" :key="toast.id"
+                 class="toast show align-items-center border-0 shadow-sm"
+                 :class="'text-bg-' + toast.type"
+                 role="alert">
+                <div class="d-flex">
+                    <div class="toast-body fw-semibold">
+                        <i class="bi me-2"
+                           :class="toast.type === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-circle-fill'"></i>
+                        {{ toast.message }}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto"
+                            @click="removeToast(toast.id)"></button>
+                </div>
+            </div>
         </div>
 
     </div>
@@ -220,7 +270,6 @@
     <script src="components/NouveauGroupe.js"></script>
     <script src="components/Groupes.js"></script>
     <script src="components/EditExpense.js"></script>
-    <script src="components/SelectGroup.js"></script>
     <script src="app.js"></script>
 
 </body>

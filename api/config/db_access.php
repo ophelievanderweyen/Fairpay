@@ -24,6 +24,6 @@ try {
   echo 'Échec de la connexion à la base de données : ' . $e->getMessage();
   exit();
 }
-// Si on arrive ici, la connexion a réussi. 
-// La variable $connexion est prête à être utilisée par le fichier add_depense.php !
+// Si on arrive ici, la connexion a réussi.
+// La variable $connexion est prête à être utilisée par backend.php via include_once.
 ?>

@@ -1,6 +1,7 @@
 /**
  * app.js - Moteur de navigation de Fairpay
- * Gère l'affichage dynamique des composants Accueil et Nouveau
+ * Gère la navigation (currentPage), l'authentification (login/register) et les toasts
+ * Composants enregistrés : AccueilPage, NouveauPage, NouveauGroupePage, GroupesPage, EditExpensePage
  */
 
 /* =========================================================================
@@ -28,6 +29,8 @@ const app = createApp({
             */
             currentPage: 'home',      // Définit quelle page afficher (ex: 'home', 'profil')
             currentUser: null,        // Stocke les infos de l'utilisateur connecté (null si non connecté)
+            editExpenseId: null,      // ID de la dépense en cours de modification
+            toasts: [],               // Notifications flottantes (success, danger)
             
             /* Variables pour la page de connexion / inscription */
             isLogin: true,            // Vrai = mode connexion, Faux = mode inscription
@@ -56,6 +59,18 @@ const app = createApp({
        de l'utilisateur (clics, soumission de formulaires, etc.).
     */
     methods: {
+        // Affiche une notification flottante pendant 3 secondes
+        showToast(message, type = 'success') {
+            const id = Date.now();
+            this.toasts.push({ id, message, type });
+            setTimeout(() => {
+                this.toasts = this.toasts.filter(t => t.id !== id);
+            }, 3000);
+        },
+        removeToast(id) {
+            this.toasts = this.toasts.filter(t => t.id !== id);
+        },
+
         // Fonction pour changer de page (navigation interne)
         goTo(page) {
             this.currentPage = page;
@@ -110,7 +125,7 @@ const app = createApp({
                     // Si l'inscription réussit, on repasse en mode connexion
                     this.isLogin = true;
                     this.error = null;
-                    alert('Inscription réussie ! Vous pouvez vous connecter.');
+                    this.showToast('Inscription réussie ! Vous pouvez vous connecter.', 'success');
                 } else {
                     this.error = data.message || 'Erreur lors de l\'inscription';
                 }
@@ -132,7 +147,6 @@ app.component('nouveau-page', NouveauPage);
 app.component('nouveau-groupe-page', NouveauGroupePage);
 app.component('groupes-page', GroupesPage);
 app.component('edit-expense-page', EditExpensePage);
-app.component('select-group-page', SelectGroupPage);
 
 /* =========================================================================
    ÉTAPE 5 : LANCEMENT DE L'APPLICATION (MONTAGE)
