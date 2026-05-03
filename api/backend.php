@@ -221,7 +221,7 @@ switch ($action) {
             echo json_encode(['error' => 'Non connecté']);
             exit;
         }
-        if ($_SERVER["REQUEST_METHOD"] == "POST") {
+        if ($_SERVER["REQUEST_METHOD"] == "POST") { //
             // Récupération des données du formulaire avec nettoyage (XSS et types)
             // EXPLICATION SÉCURITÉ :
             // 1. intval() : Force la donnée à être un nombre entier. Si un pirate envoie du texte ou du code SQL, ça deviendra un simple 0.
