@@ -1,10 +1,19 @@
 // Nouveau.js — Composant "Nouvelle dépense"
-// Flux général : formulaire HTML ↔ v-model ↔ form{} → validate() → POST backend.php → toast + retour home
+// Contient : Flux n°3 (chargement des groupes et utilisateurs)
+//            Flux n°4 (ajouter une dépense)
+
 const NouveauPage = {
+
+    /* =========================================================================
+       AUCUN FLUX — Données internes du composant
+       ========================================================================= */
     data() {
         return {
+            // Flux 3 : liste des groupes pour le menu déroulant (chargée au montage)
             groups: [],
+            // Flux 5 : liste des utilisateurs pour le menu "Payé par" (chargée au montage)
             users: [],
+            // Flux 5 : champs du formulaire liés aux inputs via v-model
             form: {
                 group_id:     '',
                 reason:       '',
@@ -12,11 +21,18 @@ const NouveauPage = {
                 expense_date: '',
                 payer_id:     ''
             },
+            // Flux 5 : messages d'erreur de validation affichés sous chaque champ
             errors: {},
+            // Flux 5 : passe à true pendant l'envoi pour désactiver le bouton
             submitting: false
         }
     },
 
+    /* =========================================================================
+       FLUX N°4 : AJOUTER UNE DÉPENSE — Template (interface utilisateur)
+       Les menus déroulants "Groupe" et "Payé par" sont peuplés dynamiquement
+       depuis la base de données (Flux 3), pas en dur dans le code
+       ========================================================================= */
     template: `
         <div class="p-4">
             <div class="top-bar">
@@ -29,6 +45,7 @@ const NouveauPage = {
             <div class="light-card">
                 <form @submit.prevent="submitForm" novalidate>
 
+                    <!-- Flux n°3 : groupes chargés depuis get_groups au montage -->
                     <div class="mb-3">
                         <label class="form-label text-muted fw-bold" style="font-size: 13px;">Dans quel groupe ?</label>
                         <select v-model="form.group_id" class="form-select"
@@ -39,6 +56,7 @@ const NouveauPage = {
                         <div v-if="errors.group_id" class="invalid-feedback">{{ errors.group_id }}</div>
                     </div>
 
+                    <!-- Flux n°4 : champs de la dépense -->
                     <div class="mb-3">
                         <label class="form-label text-muted fw-bold" style="font-size: 13px;">Motif de la dépense</label>
                         <input type="text" v-model="form.reason" class="form-control"
@@ -68,6 +86,7 @@ const NouveauPage = {
                         <div v-if="errors.expense_date" class="invalid-feedback">{{ errors.expense_date }}</div>
                     </div>
 
+                    <!-- Flux n°3 : utilisateurs chargés depuis get_users au montage (plus de noms hardcodés) -->
                     <div class="mb-4">
                         <label class="form-label text-muted fw-bold" style="font-size: 13px;">Payé par</label>
                         <select v-model="form.payer_id" class="form-select"
@@ -96,16 +115,21 @@ const NouveauPage = {
         </div>
     `,
 
+    /* =========================================================================
+       FLUX N°3 : AFFICHER LES GROUPES — Chargement des groupes au montage
+       FLUX N°4 : AJOUTER UNE DÉPENSE — Chargement des utilisateurs au montage
+       Flux : montage du composant → deux GET simultanés
+              → get_groups → groups[] (menu "Dans quel groupe ?")
+              → get_users  → users[]  (menu "Payé par")
+       ========================================================================= */
     mounted() {
-        // Flux → deux requêtes GET au chargement du composant :
-        // get_groups : remplit le menu déroulant "Dans quel groupe ?"
-        // get_users  : remplit le menu déroulant "Payé par"
-        // Flux retour ← tableaux JSON → Vue peuple les <option> via v-for
+        // Flux 3 : charge les groupes pour le menu déroulant
         fetch('api/backend.php?action=get_groups')
             .then(res => res.json())
             .then(data => { this.groups = Array.isArray(data) ? data : []; })
             .catch(() => {});
 
+        // Flux 5 : charge les utilisateurs pour le menu déroulant "Payé par"
         fetch('api/backend.php?action=get_users')
             .then(res => res.json())
             .then(data => { this.users = Array.isArray(data) ? data : []; })
@@ -113,6 +137,11 @@ const NouveauPage = {
     },
 
     methods: {
+
+        /* =========================================================================
+           FLUX N°4 : AJOUTER UNE DÉPENSE — Validation du formulaire
+           Vérifie chaque champ avant l'envoi et stocke les erreurs dans errors{}
+           ========================================================================= */
         validate() {
             this.errors = {};
             if (!this.form.group_id)
@@ -128,12 +157,16 @@ const NouveauPage = {
             return Object.keys(this.errors).length === 0;
         },
 
+        /* =========================================================================
+           FLUX N°4 : AJOUTER UNE DÉPENSE — Envoi du formulaire
+           Flux : @submit.prevent → validate() → FormData → POST add_depense
+                  → backend INSERT INTO expenses
+                  → JSON { success: true } → toast + retour 'home' (déclenche Flux n°9)
+           ========================================================================= */
         async submitForm() {
-            if (!this.validate()) return; // Stoppe si le formulaire contient des erreurs
+            if (!this.validate()) return;
             this.submitting = true;
 
-            // Flux → FormData envoyé en POST vers backend.php?action=add_depense
-            // Le backend vérifie la session, nettoie chaque champ, puis INSERT INTO expenses
             const fd = new FormData();
             fd.append('group_id',     this.form.group_id);
             fd.append('payer_id',     this.form.payer_id);
@@ -143,7 +176,7 @@ const NouveauPage = {
             try {
                 const res  = await fetch('api/backend.php?action=add_depense', { method: 'POST', body: fd });
                 const data = await res.json();
-                // Flux retour ← JSON { success: true } → toast de succès + retour au tableau de bord
+                // Flux retour ← succès → retour 'home' relance automatiquement le Flux n°9 (Dashboard)
                 if (data.success) {
                     this.$parent.showToast('Dépense ajoutée avec succès !', 'success');
                     this.$parent.currentPage = 'home';

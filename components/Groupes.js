@@ -1,30 +1,53 @@
 // Groupes.js — Composant "Mes Groupes"
-// Flux général : montage → get_groups → liste affichée → clic groupe → 4 requêtes détail → panneau
+// Contient : Flux n°3  (afficher les groupes)
+//            Flux n°6  (supprimer un groupe)
+//            Flux n°11 (consulter les détails d'un groupe)
+//            Flux n°12 (ajouter un membre à un groupe)
+//            Flux n°13 (enregistrer un remboursement)
+
 const GroupesPage = {
+
+    /* =========================================================================
+       AUCUN FLUX — Données internes du composant
+       ========================================================================= */
     data() {
         return {
+            /* -----------------------------------------------------------------
+               FLUX N°3 — Liste de tous les groupes affichés dans la page
+               ----------------------------------------------------------------- */
             groups: [],
-            selectedGroup: null,
-            groupExpenses: [],
-            groupTotals: [],
-            groupMembers: [],
-            groupSettlements: [],
-            allUsers: [],
-            newMemberId: '',
-            showAddMember: false
+
+            /* -----------------------------------------------------------------
+               FLUX N°11 — Données du groupe sélectionné et de son panneau de détail
+               ----------------------------------------------------------------- */
+            selectedGroup:    null,  // Groupe actuellement ouvert (null = panneau fermé)
+            groupExpenses:    [],    // Dépenses du groupe sélectionné (avec noms payeurs)
+            groupTotals:      [],    // Total avancé par membre dans ce groupe
+            groupMembers:     [],    // Liste des membres du groupe
+            groupSettlements: [],    // Historique des remboursements enregistrés
+
+            /* -----------------------------------------------------------------
+               FLUX N°12 — Variables pour l'ajout d'un membre
+               ----------------------------------------------------------------- */
+            allUsers:      [],    // Tous les utilisateurs de l'appli (pour le menu déroulant)
+            newMemberId:   '',    // ID de l'utilisateur sélectionné dans le menu
+            showAddMember: false  // Bascule l'affichage du formulaire d'ajout
         }
     },
 
+    /* =========================================================================
+       FLUX N°11 & 13 : DÉTAILS GROUPE — Calcul des remboursements suggérés
+       Algorithme glouton : calcule qui doit quoi à qui d'après les dépenses du groupe
+       Flux : groupTotals[] + groupMembers[] → computed → v-for dans le template (Flux 13)
+       ========================================================================= */
     computed: {
-        // Calcule automatiquement qui doit quoi à qui à partir des dépenses du groupe
-        // Algorithme : part équitable = total / nb membres ; solde net = payé - part équitable
         suggestedDebts() {
             if (this.groupTotals.length === 0) return [];
-            const n = this.groupMembers.length > 0 ? this.groupMembers.length : this.groupTotals.length;
-            const total      = this.groupTotals.reduce((sum, t) => sum + parseFloat(t.total_avance), 0);
-            const fairShare  = total / n;
+            const n         = this.groupMembers.length > 0 ? this.groupMembers.length : this.groupTotals.length;
+            const total     = this.groupTotals.reduce((sum, t) => sum + parseFloat(t.total_avance), 0);
+            const fairShare = total / n;
 
-            // Initialise le solde de chaque membre à -fairShare (ils doivent leur part)
+            // Initialise le solde de chaque membre à -fairShare (ils "doivent" leur part)
             const balances = {};
             if (this.groupMembers.length > 0) {
                 this.groupMembers.forEach(m => { balances[m.name] = -fairShare; });
@@ -38,13 +61,14 @@ const GroupesPage = {
                 }
             });
 
-            // Algorithme glouton : couple les débiteurs avec les créditeurs
+            // Sépare les créditeurs (solde positif) des débiteurs (solde négatif)
             const creditors = [], debtors = [];
             Object.entries(balances).forEach(([name, net]) => {
-                if (net > 0.01)  creditors.push({ name, amount: net });
+                if (net > 0.01)   creditors.push({ name, amount: net });
                 else if (net < -0.01) debtors.push({ name, amount: -net });
             });
 
+            // Algorithme glouton : associe chaque débiteur au créditeur disponible
             const settlements = [];
             let i = 0, j = 0;
             while (i < debtors.length && j < creditors.length) {
@@ -63,6 +87,9 @@ const GroupesPage = {
         }
     },
 
+    /* =========================================================================
+       TEMPLATE — Interface utilisateur complète de la page Groupes
+       ========================================================================= */
     template: `
         <div class="p-4">
             <div class="d-flex justify-content-between align-items-center mb-4">
@@ -72,7 +99,10 @@ const GroupesPage = {
                 </button>
             </div>
 
-            <!-- Liste des groupes : clic sur la carte → ouvre le panneau de détail -->
+            <!-- ================================================================
+                 FLUX N°3 — Liste des groupes
+                 Chaque carte est cliquable (Flux n°11) et possède un bouton supprimer (Flux n°6)
+                 ================================================================ -->
             <div v-for="g in groups" :key="g.id"
                  class="light-card p-3 mb-2 d-flex justify-content-between align-items-center group-card-item"
                  :class="{ 'group-card-active': selectedGroup && selectedGroup.id === g.id }"
@@ -86,16 +116,18 @@ const GroupesPage = {
                         <small class="text-muted">{{ g.description || 'Pas de description' }}</small>
                     </div>
                 </div>
-                <!-- .stop empêche le clic sur la poubelle d'ouvrir le panneau de détail -->
+                <!-- Flux n°6 — Bouton supprimer : .stop empêche d'ouvrir le panneau de détail -->
                 <button class="btn btn-link text-danger p-0 ms-3" @click.stop="deleteGroup(g.id)">
                     <i class="bi bi-trash3"></i>
                 </button>
             </div>
 
-            <!-- PANNEAU DE DÉTAIL DU GROUPE SÉLECTIONNÉ -->
+            <!-- ================================================================
+                 FLUX N°11 — Panneau de détail du groupe sélectionné
+                 Visible uniquement si selectedGroup n'est pas null
+                 ================================================================ -->
             <div v-if="selectedGroup" class="light-card p-4 mt-4">
 
-                <!-- En-tête du panneau -->
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h5 class="fw-bold mb-0">
                         <i class="bi bi-collection-fill text-primary me-2"></i>{{ selectedGroup.name }}
@@ -105,7 +137,7 @@ const GroupesPage = {
                     </button>
                 </div>
 
-                <!-- SECTION : Total avancé par membre -->
+                <!-- Flux n°11 — Requête 1 : Total avancé par membre -->
                 <h6 class="section-label mb-3">Total avancé par membre</h6>
                 <div v-if="groupTotals.length === 0" class="text-muted small mb-4">Aucune dépense enregistrée.</div>
                 <div v-else class="totals-list mb-4">
@@ -120,7 +152,7 @@ const GroupesPage = {
 
                 <hr class="my-3">
 
-                <!-- SECTION : Dépenses du groupe -->
+                <!-- Flux n°11 — Requête 2 : Dépenses du groupe avec nom du payeur -->
                 <h6 class="section-label mb-3">Dépenses du groupe</h6>
                 <div v-if="groupExpenses.length === 0" class="text-muted small mb-4">Aucune dépense pour ce groupe.</div>
                 <div v-else class="expenses-table-wrapper mb-4">
@@ -146,7 +178,7 @@ const GroupesPage = {
 
                 <hr class="my-3">
 
-                <!-- SECTION : Membres du groupe -->
+                <!-- Flux n°11 — Requête 3 + Flux n°12 : Membres du groupe + ajout de membre -->
                 <h6 class="section-label mb-3">Membres du groupe</h6>
                 <div class="d-flex flex-wrap gap-2 mb-3">
                     <span v-if="groupMembers.length === 0" class="text-muted small">Aucun membre enregistré.</span>
@@ -157,6 +189,8 @@ const GroupesPage = {
                         </span>{{ m.name }}
                     </span>
                 </div>
+
+                <!-- Flux n°12 — Formulaire d'ajout de membre (toggle) -->
                 <div v-if="!showAddMember">
                     <button class="btn btn-outline-primary btn-sm" @click="showAddMember = true">
                         <i class="bi bi-person-plus-fill me-1"></i>Ajouter un membre
@@ -173,15 +207,14 @@ const GroupesPage = {
 
                 <hr class="my-3">
 
-                <!-- SECTION : Remboursements -->
+                <!-- Flux n°11 (calcul) + Flux n°13 (enregistrement) — Remboursements -->
                 <h6 class="section-label mb-3">Remboursements</h6>
 
-                <!-- Solde équilibré -->
                 <div v-if="suggestedDebts.length === 0 && groupTotals.length > 0" class="text-success small mb-3">
                     <i class="bi bi-check-circle-fill me-1"></i>Tout est équilibré !
                 </div>
 
-                <!-- Remboursements suggérés (calculés depuis les dépenses) -->
+                <!-- Flux n°13 — Remboursements suggérés par l'algorithme glouton -->
                 <div v-if="suggestedDebts.length > 0" class="mb-3">
                     <p class="text-muted small mb-2 fw-bold">Remboursements suggérés :</p>
                     <div v-for="(debt, i) in suggestedDebts" :key="i"
@@ -206,7 +239,7 @@ const GroupesPage = {
                     </div>
                 </div>
 
-                <!-- Historique des remboursements enregistrés -->
+                <!-- Flux n°11 — Requête 4 : Historique des remboursements enregistrés -->
                 <div v-if="groupSettlements.length > 0">
                     <p class="text-muted small mb-2 fw-bold">Historique :</p>
                     <div v-for="(s, i) in groupSettlements" :key="i"
@@ -228,53 +261,32 @@ const GroupesPage = {
         </div>
     `,
 
+    /* =========================================================================
+       FLUX N°3 : AFFICHER LES GROUPES — Chargement initial au montage
+       ========================================================================= */
     mounted() {
         this.fetchGroups();
     },
 
     methods: {
+
+        /* =========================================================================
+           FLUX N°3 : AFFICHER LES GROUPES — Chargement de la liste des groupes
+           Flux : GET backend.php?action=get_groups → SELECT * FROM groups ORDER BY created_at DESC
+                  → JSON → groups[] → v-for affiche la liste
+           ========================================================================= */
         fetchGroups() {
             fetch('api/backend.php?action=get_groups')
                 .then(res => res.json())
                 .then(data => { this.groups = data; });
         },
 
-        selectGroup(group) {
-            if (this.selectedGroup && this.selectedGroup.id === group.id) {
-                this.selectedGroup = null;
-                return;
-            }
-            this.selectedGroup    = group;
-            this.groupExpenses    = [];
-            this.groupTotals      = [];
-            this.groupMembers     = [];
-            this.groupSettlements = [];
-            this.showAddMember    = false;
-            this.newMemberId      = '';
-
-            fetch(`api/backend.php?action=get_group_expenses_named&group_id=${group.id}`)
-                .then(res => res.json())
-                .then(data => { this.groupExpenses = Array.isArray(data) ? data : []; });
-
-            fetch(`api/backend.php?action=get_group_totals&group_id=${group.id}`)
-                .then(res => res.json())
-                .then(data => { this.groupTotals = Array.isArray(data) ? data : []; });
-
-            fetch(`api/backend.php?action=get_group_members&group_id=${group.id}`)
-                .then(res => res.json())
-                .then(data => { this.groupMembers = Array.isArray(data) ? data : []; });
-
-            fetch(`api/backend.php?action=get_group_settlements&group_id=${group.id}`)
-                .then(res => res.json())
-                .then(data => { this.groupSettlements = Array.isArray(data) ? data : []; });
-
-            if (this.allUsers.length === 0) {
-                fetch('api/backend.php?action=get_users')
-                    .then(res => res.json())
-                    .then(data => { this.allUsers = Array.isArray(data) ? data : []; });
-            }
-        },
-
+        /* =========================================================================
+           FLUX N°6 : SUPPRIMER UN GROUPE
+           Flux : clic poubelle → confirm() → FormData → POST delete_group
+                  → backend DELETE FROM groups WHERE id = :id
+                  → toast + fetchGroups() rafraîchit la liste
+           ========================================================================= */
         deleteGroup(id) {
             if (confirm("Supprimer ce groupe ?")) {
                 const formData = new FormData();
@@ -287,18 +299,72 @@ const GroupesPage = {
                         } else {
                             this.$parent.showToast('Erreur lors de la suppression.', 'danger');
                         }
+                        // Referme le panneau si c'est le groupe supprimé qui était ouvert
                         if (this.selectedGroup && this.selectedGroup.id === id) this.selectedGroup = null;
-                        this.fetchGroups();
+                        this.fetchGroups(); // Flux 3 : recharge la liste sans le groupe supprimé
                     })
                     .catch(() => { this.$parent.showToast('Erreur réseau.', 'danger'); });
             }
         },
 
+        /* =========================================================================
+           FLUX N°11 : CONSULTER LES DÉTAILS D'UN GROUPE (4 requêtes ciblées)
+           Flux : clic carte groupe → selectGroup(g) → vide les données précédentes
+                  → 4 GET simultanés : dépenses nommées, totaux, membres, remboursements
+                  → panneau de détail s'affiche (v-if="selectedGroup")
+           ========================================================================= */
+        selectGroup(group) {
+            // Referme le panneau si on reclique sur le même groupe
+            if (this.selectedGroup && this.selectedGroup.id === group.id) {
+                this.selectedGroup = null;
+                return;
+            }
+            // Vide les données précédentes pour éviter d'afficher l'ancien groupe pendant le chargement
+            this.selectedGroup    = group;
+            this.groupExpenses    = [];
+            this.groupTotals      = [];
+            this.groupMembers     = [];
+            this.groupSettlements = [];
+            this.showAddMember    = false;
+            this.newMemberId      = '';
+
+            // Requête 1 — Dépenses du groupe avec le nom du payeur (JOIN users)
+            fetch(`api/backend.php?action=get_group_expenses_named&group_id=${group.id}`)
+                .then(res => res.json())
+                .then(data => { this.groupExpenses = Array.isArray(data) ? data : []; });
+
+            // Requête 2 — Total avancé par membre (SUM par payer_id)
+            fetch(`api/backend.php?action=get_group_totals&group_id=${group.id}`)
+                .then(res => res.json())
+                .then(data => { this.groupTotals = Array.isArray(data) ? data : []; });
+
+            // Requête 3 — Membres du groupe (JOIN participations)
+            fetch(`api/backend.php?action=get_group_members&group_id=${group.id}`)
+                .then(res => res.json())
+                .then(data => { this.groupMembers = Array.isArray(data) ? data : []; });
+
+            // Requête 4 — Remboursements enregistrés (double JOIN users)
+            fetch(`api/backend.php?action=get_group_settlements&group_id=${group.id}`)
+                .then(res => res.json())
+                .then(data => { this.groupSettlements = Array.isArray(data) ? data : []; });
+
+            // Charge tous les utilisateurs si pas encore fait (nécessaire pour Flux 12 et 13)
+            if (this.allUsers.length === 0) {
+                fetch('api/backend.php?action=get_users')
+                    .then(res => res.json())
+                    .then(data => { this.allUsers = Array.isArray(data) ? data : []; });
+            }
+        },
+
+        /* =========================================================================
+           FLUX N°12 : AJOUTER UN MEMBRE À UN GROUPE
+           Flux : sélection utilisateur → clic "Ajouter" → FormData → POST add_member
+                  → backend INSERT IGNORE INTO participations (user_id, group_id)
+                  → toast + recharge groupMembers[] pour rafraîchir les badges
+           ========================================================================= */
         async addMember() {
             if (!this.newMemberId) return;
 
-            // Flux → POST action=add_member (user_id + group_id)
-            // Le backend fait INSERT IGNORE INTO participations → pas d'erreur si déjà membre
             const fd = new FormData();
             fd.append('user_id',  this.newMemberId);
             fd.append('group_id', this.selectedGroup.id);
@@ -308,7 +374,7 @@ const GroupesPage = {
                 this.$parent.showToast('Membre ajouté au groupe !', 'success');
                 this.newMemberId   = '';
                 this.showAddMember = false;
-                // Flux retour ← recharge la liste des membres pour rafraîchir l'affichage
+                // Flux retour ← recharge uniquement les membres pour mettre à jour les badges
                 fetch(`api/backend.php?action=get_group_members&group_id=${this.selectedGroup.id}`)
                     .then(r => r.json())
                     .then(d => { this.groupMembers = Array.isArray(d) ? d : []; });
@@ -317,14 +383,19 @@ const GroupesPage = {
             }
         },
 
+        /* =========================================================================
+           FLUX N°13 : ENREGISTRER UN REMBOURSEMENT (SETTLEMENT)
+           Flux : clic "Remboursé" (dette suggérée) → traduit noms en IDs via allUsers.find()
+                  → FormData → POST add_settlement
+                  → backend INSERT INTO settlements avec la date du jour
+                  → toast + recharge groupSettlements[] pour mettre à jour l'historique
+           ========================================================================= */
         async recordSettlement(fromName, toName, amount) {
-            // Traduit les noms en IDs réels (nécessaires pour la clé étrangère en BDD)
+            // Traduit les noms en IDs numériques (nécessaires pour les clés étrangères en BDD)
             const sender   = this.allUsers.find(u => u.name === fromName);
             const receiver = this.allUsers.find(u => u.name === toName);
             if (!sender || !receiver) return;
 
-            // Flux → POST action=add_settlement (group_id, sender_id, receiver_id, amount)
-            // Le backend INSERT INTO settlements avec la date du jour
             const fd = new FormData();
             fd.append('group_id',    this.selectedGroup.id);
             fd.append('sender_id',   sender.id);
@@ -334,7 +405,7 @@ const GroupesPage = {
             const data = await res.json();
             if (data.success) {
                 this.$parent.showToast('Remboursement enregistré !', 'success');
-                // Flux retour ← recharge l'historique des remboursements pour rafraîchir l'affichage
+                // Flux retour ← recharge uniquement l'historique pour mettre à jour la liste
                 fetch(`api/backend.php?action=get_group_settlements&group_id=${this.selectedGroup.id}`)
                     .then(r => r.json())
                     .then(d => { this.groupSettlements = Array.isArray(d) ? d : []; });
@@ -343,6 +414,9 @@ const GroupesPage = {
             }
         },
 
+        /* =========================================================================
+           AUCUN FLUX — Utilitaire : conversion de date SQL → format lisible
+           ========================================================================= */
         formatDate(dateStr) {
             if (!dateStr) return '';
             const [y, m, d] = dateStr.split('-');

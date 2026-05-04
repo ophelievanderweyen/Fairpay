@@ -1,6 +1,6 @@
 <?php
 /* =========================================================================
-   ÉTAPE 1 : CONFIGURATION DE LA SÉCURITÉ ET DES SESSIONS
+   AUCUN FLUX — CONFIGURATION DE LA SÉCURITÉ ET DES SESSIONS
    =========================================================================
    Ces premières lignes s'assurent que les "cookies de session" (qui
    maintiennent l'utilisateur connecté) sont sécurisés et ne peuvent pas
@@ -21,7 +21,7 @@ if (!empty($_SERVER['HTTPS'])) { // vérifie si la connexion actuelle est en HTT
 }
 
 /* =========================================================================
-   CORS ET HEADERS DE SÉCURITÉ SUPPLÉMENTAIRES
+   AUCUN FLUX — CORS ET HEADERS DE SÉCURITÉ SUPPLÉMENTAIRES
    =========================================================================
    cors-api.php est un fichier utilitaire fourni par le prof.
    Il contient la fonction add_headers_origin() qui :
@@ -45,14 +45,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 
 /* =========================================================================
-   ÉTAPE 2 : CONNEXION À LA BASE DE DONNÉES
+   AUCUN FLUX — CONNEXION À LA BASE DE DONNÉES
    =========================================================================
    On inclut le fichier qui contient la variable $connexion (accès à la BDD).
 */
 include_once 'config/db_access.php'; // include_once permet de continuer l'exécution même si le fichier est absent.
 
 /* =========================================================================
-   ÉTAPE 3 : DÉTERMINATION DE L'ACTION À EFFECTUER
+   AUCUN FLUX — ROUTEUR (AIGUILLAGE DES ACTIONS)
    =========================================================================
    Le frontend envoie ses requêtes vers "backend.php?action=quelqueChose".
    Ici, on regarde quelle "action" a été demandée.
@@ -75,16 +75,67 @@ if ($action === '' && $_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 /* =========================================================================
-   ÉTAPE 4 : LE ROUTEUR (AIGUILLAGE DES ACTIONS)
-   =========================================================================
-   Le "switch" fonctionne comme un grand carrefour. Selon la valeur de $action,
-   le code va aller dans la section (le "case") correspondante.
-*/
+   ROUTEUR — Le "switch" fonctionne comme un grand carrefour.
+   Selon la valeur de $action, le code va dans la section ("case") correspondante.
+   Ordre : Flux 1 → 2 → 3 → 4 → 5 → 6 → 9 → 10 → 11 → 12 → 13 → 14
+   ========================================================================= */
 switch ($action) {
 
-    /* -------------------------------------------------------------------------
-       ACTION : CONNEXION (LOGIN)
-       ------------------------------------------------------------------------- */
+    /* =========================================================================
+       FLUX N°1 : INSCRIPTION (REGISTER)
+       Flux : app.js register() → POST JSON (username, email, password)
+              → vérification unicité → password_hash → INSERT users → { success: true }
+       ========================================================================= */
+    case 'register': // Si l'action demandée est register (inscription), exécute ce bloc de code
+        header('Content-Type: application/json');  // La réponse que je vais t'envoyer est en JSON
+
+        // 1. Vérification que c'est bien une requête POST
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Action non autorisée']);
+            exit;
+        }
+
+        // 2. Récupération et vérification des données (tous les champs sont obligatoires)
+        $donnees = json_decode(file_get_contents("php://input"), true);
+        if (!is_array($donnees) || empty($donnees['username']) || empty($donnees['email']) || empty($donnees['password'])) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Oups ! Merci de remplir tous les champs.']);
+            exit;
+        }
+
+        // 3. Nettoyage
+        $name = trim($donnees['username']);
+        $email = strtolower(trim($donnees['email']));
+        $password = $donnees['password'];
+
+        // 4. Vérification si l'email ou le nom existent déjà dans la base
+        $stmt = $connexion->prepare('SELECT id FROM users WHERE email = ? OR name = ?');
+        $stmt->execute([$email, $name]);
+        $existingUser = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($existingUser) {
+            http_response_code(409); // 409 = Conflict (Conflit de données)
+            echo json_encode(['success' => false, 'message' => 'Ce nom ou cet email existe déjà.']);
+            exit;
+        }
+
+        // 5. Cryptage (hachage) du mot de passe pour la sécurité (très important !)
+        $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+
+        // 6. Insertion du nouvel utilisateur dans la base de données
+        $stmt = $connexion->prepare('INSERT INTO users (name, email, password) VALUES (?, ?, ?)');
+        $stmt->execute([$name, $email, $hashedPassword]);
+
+        // 7. Renvoi d'un message de succès
+        echo json_encode(['success' => true, 'message' => 'Inscription réussie']);
+        exit;
+
+    /* =========================================================================
+       FLUX N°2 : CONNEXION (LOGIN)
+       Flux : app.js login() → POST JSON (email, password)
+              → SELECT users WHERE email → password_verify → $_SESSION → { connexion: true }
+       ========================================================================= */
     case 'login':
         // 1. Vérification de la méthode d'envoi (doit être POST)
         // On utilise json_encode pour envoyer une réponse structurée en JSON au frontend, car JavaScript attend ce format pour pouvoir traiter les messages correctement.
@@ -143,57 +194,11 @@ switch ($action) {
         ]);
         exit;
 
-    /* -------------------------------------------------------------------------
-       ACTION : INSCRIPTION (REGISTER)
-       ------------------------------------------------------------------------- */
-    case 'register': // Si l'action demandée est register (inscription), exécute ce bloc de code
-        header('Content-Type: application/json');  // La réponse que je vais t'envoyer est en JSON
-
-        // 1. Vérification que c'est bien une requête POST
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            http_response_code(405);
-            echo json_encode(['success' => false, 'message' => 'Action non autorisée']);
-            exit;
-        }
-
-        // 2. Récupération et vérification des données (tous les champs sont obligatoires)
-        $donnees = json_decode(file_get_contents("php://input"), true);
-        if (!is_array($donnees) || empty($donnees['username']) || empty($donnees['email']) || empty($donnees['password'])) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'Oups ! Merci de remplir tous les champs.']);
-            exit;
-        }
-
-        // 3. Nettoyage
-        $name = trim($donnees['username']);
-        $email = strtolower(trim($donnees['email']));
-        $password = $donnees['password'];
-
-        // 4. Vérification si l'email ou le nom existent déjà dans la base
-        $stmt = $connexion->prepare('SELECT id FROM users WHERE email = ? OR name = ?');
-        $stmt->execute([$email, $name]);
-        $existingUser = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if ($existingUser) {
-            http_response_code(409); // 409 = Conflict (Conflit de données)
-            echo json_encode(['success' => false, 'message' => 'Ce nom ou cet email existe déjà.']);
-            exit;
-        }
-
-        // 5. Cryptage (hachage) du mot de passe pour la sécurité (très important !)
-        $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-
-        // 6. Insertion du nouvel utilisateur dans la base de données
-        $stmt = $connexion->prepare('INSERT INTO users (name, email, password) VALUES (?, ?, ?)');
-        $stmt->execute([$name, $email, $hashedPassword]);
-
-        // 7. Renvoi d'un message de succès
-        echo json_encode(['success' => true, 'message' => 'Inscription réussie']);
-        exit;
-
-    /* -------------------------------------------------------------------------
-       ACTION : RÉCUPÉRER TOUS LES GROUPES
-       ------------------------------------------------------------------------- */
+    /* =========================================================================
+       FLUX N°3 : AFFICHER LES GROUPES ET LES UTILISATEURS
+       Flux : Nouveau.js + Groupes.js au montage → GET get_groups → liste des groupes
+              Nouveau.js + EditExpense.js au montage → GET get_users → liste des membres
+       ========================================================================= */
     case 'get_groups':
         try {
             // Récupère tous les groupes, du plus récent au plus ancien
@@ -210,48 +215,23 @@ switch ($action) {
         }
         exit;
 
-    /* -------------------------------------------------------------------------
-       ACTION : AJOUTER UNE DÉPENSE
-       Reçoit les champs via POST FormData (fetch depuis Nouveau.js) -> INSERT INTO expenses
-       ------------------------------------------------------------------------- */
-    case 'add_depense':
-        if (!isset($_SESSION['utilisateur'])) {
-            http_response_code(401);
-            header('Content-Type: application/json');
-            echo json_encode(['error' => 'Non connecté']);
-            exit;
-        }
-        if ($_SERVER["REQUEST_METHOD"] == "POST") { //
-            // Récupération des données du formulaire avec nettoyage (XSS et types)
-            // EXPLICATION SÉCURITÉ :
-            // 1. intval() : Force la donnée à être un nombre entier. Si un pirate envoie du texte ou du code SQL, ça deviendra un simple 0.
-            // 2. floatval() : Idem, mais pour les nombres à virgule (les montants).
-            // 3. htmlspecialchars() : Convertit les caractères spéciaux (comme < ou >) en entités inoffensives (&lt;, &gt;). Cela empêche un attaquant d'injecter du code Javascript (Faille XSS).
-            $group_id = intval($_POST['group_id'] ?? 0);
-            $payer_id = intval($_POST['payer_id'] ?? $_SESSION['utilisateur']['id']);
-            $amount   = floatval($_POST['amount'] ?? 0);
-            $reason   = htmlspecialchars($_POST['reason'] ?? 'Sans motif');
-            $date     = htmlspecialchars($_POST['expense_date'] ?? date('Y-m-d'));
-
-            try {
-                // Insertion dans la table des dépenses
-                $sql = "INSERT INTO expenses (group_id, payer_id, amount, expense_date, reason)
-                        VALUES (:g, :p, :a, :d, :r)";
-                $stmt = $connexion->prepare($sql);
-                $stmt->execute([':g'=>$group_id, ':p'=>$payer_id, ':a'=>$amount, ':d'=>$date, ':r'=>$reason]);
-
-                header('Content-Type: application/json');
-                echo json_encode(['success' => true]);
-            } catch(PDOException $e) {
-                header('Content-Type: application/json');
-                echo json_encode(['error' => $e->getMessage()]);
-            }
+    case 'get_users':
+        // Utilisé pour peupler le menu déroulant "Payé par" avec les vrais IDs BDD
+        header('Content-Type: application/json');
+        try {
+            $stmt = $connexion->prepare("SELECT id, name FROM users ORDER BY name");
+            $stmt->execute();
+            echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+        } catch (PDOException $e) {
+            echo json_encode(['error' => $e->getMessage()]);
         }
         exit;
 
-    /* -------------------------------------------------------------------------
-       ACTION : AJOUTER UN GROUPE
-       ------------------------------------------------------------------------- */
+    /* =========================================================================
+       FLUX N°4 : AJOUTER UN GROUPE
+       Flux : NouveauGroupe.js submitForm() → POST FormData (name, description)
+              → INSERT groups + INSERT participations (créateur) → { success: true }
+       ========================================================================= */
     case 'add_group':
         if (!isset($_SESSION['utilisateur'])) {
             http_response_code(401);
@@ -284,9 +264,51 @@ switch ($action) {
         }
         exit;
 
-    /* -------------------------------------------------------------------------
-       ACTION : SUPPRIMER UN GROUPE
-       ------------------------------------------------------------------------- */
+    /* =========================================================================
+       FLUX N°5 : AJOUTER UNE DÉPENSE
+       Flux : Nouveau.js submitForm() → POST FormData (group_id, payer_id, amount, reason, expense_date)
+              → INSERT expenses → { success: true }
+       ========================================================================= */
+    case 'add_depense':
+        if (!isset($_SESSION['utilisateur'])) {
+            http_response_code(401);
+            header('Content-Type: application/json');
+            echo json_encode(['error' => 'Non connecté']);
+            exit;
+        }
+        if ($_SERVER["REQUEST_METHOD"] == "POST") {
+            // Récupération des données du formulaire avec nettoyage (XSS et types)
+            // EXPLICATION SÉCURITÉ :
+            // 1. intval() : Force la donnée à être un nombre entier. Si un pirate envoie du texte ou du code SQL, ça deviendra un simple 0.
+            // 2. floatval() : Idem, mais pour les nombres à virgule (les montants).
+            // 3. htmlspecialchars() : Convertit les caractères spéciaux (comme < ou >) en entités inoffensives (&lt;, &gt;). Cela empêche un attaquant d'injecter du code Javascript (Faille XSS).
+            $group_id = intval($_POST['group_id'] ?? 0);
+            $payer_id = intval($_POST['payer_id'] ?? $_SESSION['utilisateur']['id']);
+            $amount   = floatval($_POST['amount'] ?? 0);
+            $reason   = htmlspecialchars($_POST['reason'] ?? 'Sans motif');
+            $date     = htmlspecialchars($_POST['expense_date'] ?? date('Y-m-d'));
+
+            try {
+                // Insertion dans la table des dépenses
+                $sql = "INSERT INTO expenses (group_id, payer_id, amount, expense_date, reason)
+                        VALUES (:g, :p, :a, :d, :r)";
+                $stmt = $connexion->prepare($sql);
+                $stmt->execute([':g'=>$group_id, ':p'=>$payer_id, ':a'=>$amount, ':d'=>$date, ':r'=>$reason]);
+
+                header('Content-Type: application/json');
+                echo json_encode(['success' => true]);
+            } catch(PDOException $e) {
+                header('Content-Type: application/json');
+                echo json_encode(['error' => $e->getMessage()]);
+            }
+        }
+        exit;
+
+    /* =========================================================================
+       FLUX N°6 : SUPPRIMER UN GROUPE
+       Flux : Groupes.js deleteGroup() → POST FormData (id)
+              → DELETE FROM groups WHERE id → { success: true }
+       ========================================================================= */
     case 'delete_group':
         if (!isset($_SESSION['utilisateur'])) {
             http_response_code(401);
@@ -311,11 +333,12 @@ switch ($action) {
         }
         exit;
 
-    /* -------------------------------------------------------------------------
-       ACTION : TABLEAU DE BORD (GET_DASHBOARD)
-       Retourne en une seule requête : groupes, dépenses récentes, et soldes.
-       Flux : frontend fetch() -> session PHP -> 3 requêtes SQL -> JSON -> Vue.js
-       ------------------------------------------------------------------------- */
+    /* =========================================================================
+       FLUX N°9 : TABLEAU DE BORD (DASHBOARD)
+       Flux : Accueil.js fetchDashboard() → GET get_dashboard
+              → session PHP → 4 requêtes SQL → JSON (groups, expenses, balance)
+              → Vue.js re-rend le tableau de bord
+       ========================================================================= */
     case 'get_dashboard':
         // Vérifie que l'utilisateur est connecté (session PHP active)
         if (!isset($_SESSION['utilisateur'])) {
@@ -329,14 +352,14 @@ switch ($action) {
         try {
             header('Content-Type: application/json');
 
-            // --- Flux SQL 1 : récupère les 5 groupes les plus récents ---
+            // --- Requête SQL 1 : récupère les 5 groupes les plus récents ---
             $stmt = $connexion->prepare(
                 "SELECT * FROM `groups` ORDER BY created_at DESC LIMIT 5"
             );
             $stmt->execute();
             $groups = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            // --- Flux SQL 2 : récupère les 5 dernières dépenses avec nom du groupe ET nom du payeur ---
+            // --- Requête SQL 2 : récupère les 5 dernières dépenses avec nom du groupe ET nom du payeur ---
             // Double LEFT JOIN : expenses -> groups (nom du groupe) + expenses -> users (nom du payeur)
             // Utilise l'ID réel de la table users, pas un ID hardcodé
             $stmt = $connexion->prepare(
@@ -350,7 +373,7 @@ switch ($action) {
             $stmt->execute();
             $expenses = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            // --- Flux SQL 3 : calcul des soldes sur TOUTES les dépenses ---
+            // --- Requête SQL 3 : calcul des soldes sur TOUTES les dépenses ---
             // Une seule ligne de résultat : pas de filtre par groupe ni de sous-requête.
             // Cela fonctionne même si l'utilisateur n'a pas encore de dépense enregistrée.
             // - nb_membres     = nombre de payeurs distincts dans toute l'appli (proxy pour "membres")
@@ -373,7 +396,7 @@ switch ($action) {
             $je_dois    = round((float) $row['autres_ont_paye'] / $n, 2);
             $on_me_doit = round((float) $row['j_ai_paye'] * ($n - 1) / $n, 2);
 
-            // --- Flux SQL 4 : total personnel de toutes mes dépenses (sans filtre de date) ---
+            // --- Requête SQL 4 : total personnel de toutes mes dépenses (sans filtre de date) ---
             // On ne filtre PAS par mois courant : les données de test peuvent être sur n'importe quelle date.
             // payer_id = $uid -> on ne compte que ce que MOI j'ai réellement payé.
             $stmt = $connexion->prepare(
@@ -399,11 +422,11 @@ switch ($action) {
         }
         exit;
 
-    /* -------------------------------------------------------------------------
-       ACTION : SOLDE DU MOIS AFFICHÉ DANS LE CALENDRIER
-       Reçoit year et month en GET -> retourne je_dois/on_me_doit pour ce mois uniquement
-       Flux : Vue watch(calendarMonth) -> fetch ?action=get_monthly_balance&year=&month= -> JSON
-       ------------------------------------------------------------------------- */
+    /* =========================================================================
+       FLUX N°10 : SOLDE MENSUEL DU CALENDRIER
+       Flux : Accueil.js watch(calendarMonth) → GET get_monthly_balance?year=&month=
+              → même formule que Flux 9 mais filtrée sur le mois affiché → JSON
+       ========================================================================= */
     case 'get_monthly_balance':
         if (!isset($_SESSION['utilisateur'])) {
             http_response_code(401);
@@ -437,15 +460,19 @@ switch ($action) {
         }
         exit;
 
-    /* -------------------------------------------------------------------------
-       REQUÊTE 1 : TOTAL AVANCÉ PAR MEMBRE DANS UN GROUPE
-       Utilisée dans Groupes.js pour afficher "qui a payé quoi" dans le détail
-       ------------------------------------------------------------------------- */
+    /* =========================================================================
+       FLUX N°11 : CONSULTER LES DÉTAILS D'UN GROUPE
+       4 requêtes GET séparées, appelées en parallèle par Groupes.js (Promise.all)
+       Flux : Groupes.js selectGroup() → Promise.all([get_group_totals,
+              get_group_expenses_named, get_group_members, get_group_settlements])
+       ========================================================================= */
+
+    // Requête 1/4 : total avancé par membre dans un groupe (base de calcul des remboursements)
     case 'get_group_totals':
         header('Content-Type: application/json');
         $gid = (int) ($_GET['group_id'] ?? 0);
         try {
-            // Requête 1 : JOIN expenses + users -> SUM par payeur -> base pour calculer les remboursements
+            // JOIN expenses + users -> SUM par payeur -> base pour calculer les remboursements
             $stmt = $connexion->prepare(
                 "SELECT users.name AS nom_payeur, SUM(expenses.amount) AS total_avance
                  FROM expenses
@@ -458,15 +485,12 @@ switch ($action) {
         } catch (PDOException $e) { echo json_encode(['error' => $e->getMessage()]); }
         exit;
 
-    /* -------------------------------------------------------------------------
-       REQUÊTE 2 : DÉPENSES D'UN GROUPE AVEC NOM DU PAYEUR
-       Utilisée dans Groupes.js — version lisible de la requête 1 (JOIN users)
-       ------------------------------------------------------------------------- */
+    // Requête 2/4 : dépenses d'un groupe avec nom du payeur (version lisible)
     case 'get_group_expenses_named':
         header('Content-Type: application/json');
         $gid = (int) ($_GET['group_id'] ?? 0);
         try {
-            // Requête 2 : JOIN expenses + users -> remplace payer_id par un vrai prénom
+            // JOIN expenses + users -> remplace payer_id par un vrai prénom
             $stmt = $connexion->prepare(
                 "SELECT users.name AS payeur, expenses.reason, expenses.amount, expenses.expense_date
                  FROM expenses
@@ -479,15 +503,12 @@ switch ($action) {
         } catch (PDOException $e) { echo json_encode(['error' => $e->getMessage()]); }
         exit;
 
-    /* -------------------------------------------------------------------------
-       REQUÊTE 3 : MEMBRES D'UN GROUPE
-       Utilisée dans Groupes.js via get_group_members
-       ------------------------------------------------------------------------- */
+    // Requête 3/4 : membres d'un groupe (via la table participations)
     case 'get_group_members':
         header('Content-Type: application/json');
         $gid = (int) ($_GET['group_id'] ?? 0);
         try {
-            // Requête 3 : JOIN users + participations -> liste des membres du groupe
+            // JOIN users + participations -> liste des membres du groupe
             $stmt = $connexion->prepare(
                 "SELECT users.name, users.email
                  FROM users
@@ -499,15 +520,12 @@ switch ($action) {
         } catch (PDOException $e) { echo json_encode(['error' => $e->getMessage()]); }
         exit;
 
-    /* -------------------------------------------------------------------------
-       REQUÊTE 4 : REMBOURSEMENTS D'UN GROUPE
-       Utilisée dans Groupes.js via get_group_settlements
-       ------------------------------------------------------------------------- */
+    // Requête 4/4 : remboursements enregistrés dans un groupe
     case 'get_group_settlements':
         header('Content-Type: application/json');
         $gid = (int) ($_GET['group_id'] ?? 0);
         try {
-            // Requête 4 : double JOIN sur users -> remplace sender_id et receiver_id par leurs noms
+            // Double JOIN sur users -> remplace sender_id et receiver_id par leurs noms
             $stmt = $connexion->prepare(
                 "SELECT sender.name AS a_paye, receiver.name AS a_recu,
                         settlements.amount, settlements.settlement_date
@@ -522,25 +540,70 @@ switch ($action) {
         } catch (PDOException $e) { echo json_encode(['error' => $e->getMessage()]); }
         exit;
 
-    /* -------------------------------------------------------------------------
-       ACTION : RÉCUPÉRER TOUS LES UTILISATEURS
-       Utilisé pour peupler le menu déroulant "Payé par" avec les vrais IDs BDD
-       ------------------------------------------------------------------------- */
-    case 'get_users':
+    /* =========================================================================
+       FLUX N°12 : AJOUTER UN MEMBRE À UN GROUPE
+       Flux : Groupes.js addMember() → POST FormData (user_id, group_id)
+              → INSERT IGNORE participations → { success: true }
+              INSERT IGNORE évite l'erreur si l'utilisateur est déjà membre (contrainte UNIQUE)
+       ========================================================================= */
+    case 'add_member':
+        if (!isset($_SESSION['utilisateur'])) {
+            http_response_code(401);
+            header('Content-Type: application/json');
+            echo json_encode(['error' => 'Non connecté']);
+            exit;
+        }
         header('Content-Type: application/json');
-        try {
-            $stmt = $connexion->prepare("SELECT id, name FROM users ORDER BY name");
-            $stmt->execute();
-            echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
-        } catch (PDOException $e) {
-            echo json_encode(['error' => $e->getMessage()]);
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $user_id  = intval($_POST['user_id']  ?? 0);
+            $group_id = intval($_POST['group_id'] ?? 0);
+            try {
+                $stmt = $connexion->prepare(
+                    "INSERT IGNORE INTO participations (user_id, group_id) VALUES (?, ?)"
+                );
+                $stmt->execute([$user_id, $group_id]);
+                echo json_encode(['success' => true]);
+            } catch (PDOException $e) { echo json_encode(['error' => $e->getMessage()]); }
         }
         exit;
 
-    /* -------------------------------------------------------------------------
-       ACTION : RÉCUPÉRER UNE DÉPENSE PAR SON ID
-       Utilisée par EditExpense.js pour pré-remplir le formulaire de modification
-       ------------------------------------------------------------------------- */
+    /* =========================================================================
+       FLUX N°13 : ENREGISTRER UN REMBOURSEMENT (SETTLEMENT)
+       Flux : Groupes.js recordSettlement() → POST FormData (group_id, sender_id, receiver_id, amount)
+              → INSERT settlements → { success: true }
+       ========================================================================= */
+    case 'add_settlement':
+        if (!isset($_SESSION['utilisateur'])) {
+            http_response_code(401);
+            header('Content-Type: application/json');
+            echo json_encode(['error' => 'Non connecté']);
+            exit;
+        }
+        header('Content-Type: application/json');
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $group_id    = intval($_POST['group_id']    ?? 0);
+            $sender_id   = intval($_POST['sender_id']   ?? 0);
+            $receiver_id = intval($_POST['receiver_id'] ?? 0);
+            $amount      = floatval($_POST['amount']    ?? 0);
+            $date        = date('Y-m-d');
+            try {
+                $stmt = $connexion->prepare(
+                    "INSERT INTO settlements (group_id, sender_id, receiver_id, amount, settlement_date)
+                     VALUES (?, ?, ?, ?, ?)"
+                );
+                $stmt->execute([$group_id, $sender_id, $receiver_id, $amount, $date]);
+                echo json_encode(['success' => true]);
+            } catch (PDOException $e) { echo json_encode(['error' => $e->getMessage()]); }
+        }
+        exit;
+
+    /* =========================================================================
+       FLUX N°14 : MODIFIER UNE DÉPENSE
+       Flux : EditExpense.js mounted() → GET get_expense?id= → pré-remplissage du formulaire
+              EditExpense.js saveExpense() → POST FormData (id, group_id, payer_id, ...) → UPDATE expenses
+       ========================================================================= */
+
+    // Requête 1/2 : récupérer une dépense par son ID (pré-remplissage du formulaire)
     case 'get_expense':
         header('Content-Type: application/json');
         $id = (int) ($_GET['id'] ?? 0);
@@ -552,10 +615,7 @@ switch ($action) {
         } catch (PDOException $e) { echo json_encode(['error' => $e->getMessage()]); }
         exit;
 
-    /* -------------------------------------------------------------------------
-       ACTION : MODIFIER UNE DÉPENSE
-       Reçoit les champs via POST FormData -> met à jour la ligne dans expenses
-       ------------------------------------------------------------------------- */
+    // Requête 2/2 : enregistrer les modifications de la dépense
     case 'update_expense':
         if (!isset($_SESSION['utilisateur'])) {
             http_response_code(401);
@@ -583,63 +643,10 @@ switch ($action) {
         }
         exit;
 
-    /* -------------------------------------------------------------------------
-       ACTION : ENREGISTRER UN REMBOURSEMENT
-       Flux : Groupes.js -> FormData (group_id, sender_id, receiver_id, amount) -> INSERT
-       ------------------------------------------------------------------------- */
-    case 'add_settlement':
-        if (!isset($_SESSION['utilisateur'])) {
-            http_response_code(401);
-            header('Content-Type: application/json');
-            echo json_encode(['error' => 'Non connecté']);
-            exit;
-        }
-        header('Content-Type: application/json');
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $group_id    = intval($_POST['group_id']    ?? 0);
-            $sender_id   = intval($_POST['sender_id']   ?? 0);
-            $receiver_id = intval($_POST['receiver_id'] ?? 0);
-            $amount      = floatval($_POST['amount']    ?? 0);
-            $date        = date('Y-m-d');
-            try {
-                $stmt = $connexion->prepare(
-                    "INSERT INTO settlements (group_id, sender_id, receiver_id, amount, settlement_date)
-                     VALUES (?, ?, ?, ?, ?)"
-                );
-                $stmt->execute([$group_id, $sender_id, $receiver_id, $amount, $date]);
-                echo json_encode(['success' => true]);
-            } catch (PDOException $e) { echo json_encode(['error' => $e->getMessage()]); }
-        }
-        exit;
-
-    /* -------------------------------------------------------------------------
-       ACTION : AJOUTER UN MEMBRE À UN GROUPE
-       INSERT IGNORE évite l'erreur si l'utilisateur est déjà membre (contrainte UNIQUE)
-       ------------------------------------------------------------------------- */
-    case 'add_member':
-        if (!isset($_SESSION['utilisateur'])) {
-            http_response_code(401);
-            header('Content-Type: application/json');
-            echo json_encode(['error' => 'Non connecté']);
-            exit;
-        }
-        header('Content-Type: application/json');
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $user_id  = intval($_POST['user_id']  ?? 0);
-            $group_id = intval($_POST['group_id'] ?? 0);
-            try {
-                $stmt = $connexion->prepare(
-                    "INSERT IGNORE INTO participations (user_id, group_id) VALUES (?, ?)"
-                );
-                $stmt->execute([$user_id, $group_id]);
-                echo json_encode(['success' => true]);
-            } catch (PDOException $e) { echo json_encode(['error' => $e->getMessage()]); }
-        }
-        exit;
-
-    /* -------------------------------------------------------------------------
-       SI L'ACTION DEMANDÉE N'EXISTE PAS (SÉCURITÉ)
-       ------------------------------------------------------------------------- */
+    /* =========================================================================
+       AUCUN FLUX — ACTION INCONNUE (SÉCURITÉ)
+       Si l'action demandée n'existe pas, on retourne une erreur 400
+       ========================================================================= */
     default:
         http_response_code(400); // 400 = Bad Request (Requête mal formulée)
         echo json_encode(['message' => 'Action inconnue ou manquante.']);

@@ -36,6 +36,25 @@ body {
     padding-bottom: 20px;
 }
 
+/* --- PAGE DE CONNEXION / INSCRIPTION --- */
+/* Bannière gauche : dégradé navy → indigo, cohérent avec la sidebar */
+.login-banner {
+    min-height: 100vh;
+    background: linear-gradient(135deg, var(--sidebar-bg), var(--primary));
+}
+
+/* Lien "Créer un compte" / "Se connecter" */
+.auth-link {
+    text-decoration: none;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.auth-link:hover { text-decoration: underline; }
+
+/* Masque le contenu Vue avant que le rendu soit prêt (évite la page blanche) */
+[v-cloak] { display: none; }
+
 /* --- CONTENEUR PRINCIPAL (Mobile-First) --- */
 .main-container, .mobile-container {
     max-width: 500px;
