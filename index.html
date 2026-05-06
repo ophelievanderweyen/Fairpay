@@ -1,8 +1,30 @@
 <!DOCTYPE html>
 <html lang="fr">
 
+<!-- =============================================================================
+     INDEX.HTML — Structure principale de Fairpay
+
+     TABLE DES MATIÈRES
+     ─────────────────────────────────────────────────────────────────────────
+      1.  <head>  ......  Meta · Bootstrap · Bootstrap Icons · style.css · Vue.js
+      2.  Auth  ........  Flux 1 & 2  —  Bannière gauche + formulaire connexion/inscription
+      3.  App layout
+            3a. Sidebar       Flux 8  —  Navigation desktop (barre latérale)
+            3b. Contenu       Flux 9/10  →  accueil-page      |  Flux 3/6/11/12/13  →  groupes-page
+                              Flux 3/5   →  nouveau-page      |  Flux 4  →  nouveau-groupe-page
+                              Flux 14    →  edit-expense-page  |  Flux 7  →  profil
+            3c. FAB           Flux 8  —  Bouton flottant (mobile)
+            3d. Bottom nav    Flux 8  —  Navigation mobile
+      4.  Toasts  ......  Notifications flottantes (utilisées par tous les flux)
+      5.  Imports  .....  Composants JS · app.js
+     ─────────────────────────────────────────────────────────────────────────
+============================================================================= -->
+
+<!-- =========================================================================
+     AUCUN FLUX — EN-TÊTE : CONFIGURATION, IMPORTS CSS ET VUE.JS
+     ========================================================================= -->
 <head>
-    <meta charset="UTF-8"> <!--Reglages pour que le site s'affiche bien sur les telephones (responsive)--> 
+    <meta charset="UTF-8"> <!--Reglages pour que le site s'affiche bien sur les telephones (responsive)-->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Fairpay - Gestion de dépenses</title>
     <link rel="icon" type="image/png" href="img/Logo.png"> <!-- La petite image qui s'affiche en haut dans l'onglet -->
@@ -13,42 +35,22 @@
     <link rel="stylesheet" href="style.css">
 
     <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
-
-    <style>
-        .login-banner { 
-            min-height: 100vh;
-            background: linear-gradient(135deg, #2d3272, #4361ee); /* Navy-indigo → Indigo */
-        }
-
-        .auth-link {
-            text-decoration: none;
-            font-weight: 600;
-            cursor: pointer;
-        }
-
-        .auth-link:hover {
-            text-decoration: underline;
-        }
-
-        /* Correction pour éviter la page blanche si Vue met du temps à charger */
-        [v-cloak] {
-            display: none;
-        }
-    </style>
 </head>
 
 <body class="bg-light">
 
-    <!-- =====================================================================================
-         DÉBUT DE L'APPLICATION VUE 
-         Tout ce qui est à l'intérieur de cette <div id="app"> est contrôlé par Vue.js (app.js)
-         ===================================================================================== -->
+    <!-- =========================================================================
+         AUCUN FLUX — POINT DE MONTAGE VUE.JS
+         Tout ce qui est à l'intérieur de <div id="app"> est contrôlé par Vue.js (app.js)
+         ========================================================================= -->
     <div id="app" v-cloak>
 
-        <!-- =================================================================================
-             1ÈRE PARTIE : ZONE DE CONNEXION / INSCRIPTION
+        <!-- =========================================================================
+             FLUX N°1 & 2 : ZONE DE CONNEXION / INSCRIPTION
              S'affiche UNIQUEMENT si l'utilisateur n'est pas connecté (v-if="!currentUser")
-             ================================================================================= -->
+             Flux 2 (login) : formulaire <form v-if="isLogin">
+             Flux 1 (register) : formulaire <form v-else>
+             ========================================================================= -->
         <div v-if="!currentUser">
             <div class="container-fluid p-0 vh-100 d-flex flex-column flex-md-row">
 
@@ -78,13 +80,11 @@
                         <!-- Affichage des messages d'erreur s'il y en a -->
                         <div v-if="error" class="alert alert-danger">{{ error }}</div>
 
-                        <!-- 
-                           =============================================================
-                           FORMULAIRE DE CONNEXION
-                           @submit.prevent="login" = empêche le rechargement de la page
-                           et appelle la fonction login() de app.js lors du clic sur Envoyer
-                           ============================================================= 
-                        -->
+                        <!-- =====================================================================
+                             FLUX N°2 : FORMULAIRE DE CONNEXION
+                             @submit.prevent="login" appelle login() dans app.js
+                             v-model relie chaque input à login_form.email / login_form.password
+                             ===================================================================== -->
                         <form v-if="isLogin" @submit.prevent="login">
                             <div class="mb-3">
                                 <label class="form-label text-muted small">Email</label>
@@ -107,12 +107,11 @@
                             <button type="submit" class="btn btn-primary-custom w-100 py-2">Se connecter</button>
                         </form>
 
-                        <!-- 
-                           =============================================================
-                           FORMULAIRE D'INSCRIPTION
-                           S'affiche si on n'est pas en mode connexion (v-else)
-                           ============================================================= 
-                        -->
+                        <!-- =====================================================================
+                             FLUX N°1 : FORMULAIRE D'INSCRIPTION
+                             @submit.prevent="register" appelle register() dans app.js
+                             S'affiche si on n'est pas en mode connexion (v-else)
+                             ===================================================================== -->
                         <form v-else @submit.prevent="register">
                             <div class="mb-3">
                                 <label class="form-label text-muted small">Nom d'utilisateur</label>
@@ -123,7 +122,7 @@
                                 <label class="form-label text-muted small">Email</label>
                                 <input v-model="register_form.email" type="email" class="form-control"
                                     placeholder="nom@exemple.com" required>
-                            </div>  <!-- Le lien pour passer de "Se connecter" à "Créer un compte" -->
+                            </div>
                             <div class="mb-4">
                                 <label class="form-label text-muted small">Mot de passe</label>
                                 <div class="input-group">
@@ -138,7 +137,7 @@
                             <button type="submit" class="btn btn-primary-custom w-100 py-2">S'inscrire</button>
                         </form>
 
-                        <!-- Lien pour basculer entre la connexion et l'inscription -->
+                        <!-- Lien pour basculer entre la connexion et l'inscription (appelle toggleMode) -->
                         <div class="text-center mt-4">
                             <span class="text-muted small">
                                 {{ isLogin ? "Pas encore de compte ?" : "Déjà un compte ?" }}
@@ -154,16 +153,17 @@
             </div>
         </div>
 
-        <!-- =================================================================================
-             2ÈME PARTIE : ZONE PRINCIPALE DE L'APPLICATION (CONNECTÉ)
-             S'affiche UNIQUEMENT si l'utilisateur EST connecté (v-else correspond au v-if="!currentUser")
-             ================================================================================= -->
+        <!-- =========================================================================
+             ZONE PRINCIPALE DE L'APPLICATION (CONNECTÉ)
+             S'affiche UNIQUEMENT si l'utilisateur EST connecté (v-else)
+             ========================================================================= -->
         <div v-else class="app-layout">
 
-            <!-- =================================================================================
-                 BARRE LATÉRALE GAUCHE — visible uniquement sur desktop (≥ 992px)
-                 Les boutons appellent goTo() d'app.js pour changer currentPage
-                 ================================================================================= -->
+            <!-- =====================================================================
+                 FLUX N°8 : NAVIGATION — BARRE LATÉRALE (DESKTOP ≥ 992px)
+                 Les boutons appellent goTo() dans app.js pour changer currentPage
+                 :class="{ active: ... }" ajoute la classe CSS "active" sur le bouton courant
+                 ===================================================================== -->
             <aside class="sidebar d-none d-lg-flex flex-column">
                 <div class="sidebar-logo">
                     <!-- Logo remplace l'icône wallet, le texte Fairpay reste à côté -->
@@ -194,16 +194,20 @@
                 </div>
             </aside>
 
-            <!-- =================================================================================
+            <!-- =====================================================================
                  ZONE DE CONTENU PRINCIPAL
                  Sur desktop : décalée de 240px (sidebar) via CSS .content-area
                  Sur mobile  : pleine largeur + bottom-nav + FAB
-                 ================================================================================= -->
+                 ===================================================================== -->
             <div class="content-area">
                 <main class="main-container">
                     <!--
                        Affichage dynamique : currentPage détermine quel composant est visible.
-                       Flux descendant : currentUser est transmis à accueil-page via la prop :current-user
+                       Flux 9 & 10 → accueil-page  (currentUser transmis via la prop :current-user)
+                       Flux 3, 6, 11, 12, 13 → groupes-page
+                       Flux 3, 5 → nouveau-page
+                       Flux 4 → nouveau-groupe-page
+                       Flux 14 → edit-expense-page
                     -->
                     <accueil-page v-if="currentPage === 'home'" :current-user="currentUser"></accueil-page>
                     <groupes-page v-if="currentPage === 'groupes'"></groupes-page>
@@ -211,6 +215,10 @@
                     <nouveau-groupe-page v-if="currentPage === 'nouveauGroupe'"></nouveau-groupe-page>
                     <edit-expense-page v-if="currentPage === 'editExpense'"></edit-expense-page>
 
+                    <!-- =====================================================================
+                         FLUX N°7 : PAGE PROFIL ET DÉCONNEXION
+                         currentUser = null → Vue bascule vers le v-if="!currentUser" (retour login)
+                         ===================================================================== -->
                     <div v-if="currentPage === 'profil'" class="p-4 text-dark text-center">
                         <i class="bi bi-person-circle fs-1 text-primary mb-3 d-block"></i>
                         <h5>Mon Profil</h5>
@@ -221,19 +229,27 @@
                     </div>
                 </main>
 
-                <!-- Bouton flottant (mobile uniquement, caché sur desktop via d-lg-none) -->
+                <!-- =====================================================================
+                     FLUX N°8 : NAVIGATION — BOUTON FLOTTANT (MOBILE UNIQUEMENT)
+                     Visible uniquement sur mobile (d-lg-none), caché sur desktop
+                     @click change currentPage vers 'nouveau' → affiche Nouveau.js (Flux 6)
+                     ===================================================================== -->
                 <button v-if="currentPage === 'home'" class="fab-button d-lg-none" @click="currentPage = 'nouveau'">
                     <i class="bi bi-plus-lg"></i>
                 </button>
 
-                <!-- Barre de navigation mobile (cachée sur desktop via d-lg-none) -->
+                <!-- =====================================================================
+                     FLUX N°8 : NAVIGATION — BARRE DU BAS (MOBILE UNIQUEMENT)
+                     Cachée sur desktop (d-lg-none), remplace la sidebar sur téléphone
+                     @click change currentPage → Vue affiche le composant correspondant
+                     ===================================================================== -->
                 <nav class="bottom-nav d-lg-none">
                     <button class="nav-item" :class="{ 'active': currentPage === 'home' }" @click="currentPage = 'home'">
                         <i class="bi bi-house-door-fill"></i>
                         <span>Accueil</span>
                     </button>
                     <button class="nav-item" :class="{ 'active': currentPage === 'groupes' || currentPage === 'nouveauGroupe' }" @click="currentPage = 'groupes'">
-                        <i class="bi bi-collection-fill"></i> <!-- On range ici tous les fichiers JavaScript qui font marcher le site -->
+                        <i class="bi bi-collection-fill"></i>
                         <span>Groupes</span>
                     </button>
                     <button class="nav-item" :class="{ 'active': currentPage === 'profil' }" @click="currentPage = 'profil'">
@@ -244,8 +260,11 @@
             </div>
         </div>
 
-        <!-- TOASTS : notifications flottantes en haut à droite -->
-        <!-- Flux : app.js.showToast() → toasts[] → v-for affiche chaque message 3 secondes -->
+        <!-- =========================================================================
+             AUCUN FLUX — TOASTS (NOTIFICATIONS FLOTTANTES)
+             app.js.showToast() → toasts[] → v-for affiche chaque message 3 secondes
+             Utilisé par tous les flux pour confirmer une action ou signaler une erreur
+             ========================================================================= -->
         <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999;">
             <div v-for="toast in toasts" :key="toast.id"
                  class="toast show align-items-center border-0 shadow-sm"
@@ -265,6 +284,10 @@
 
     </div>
 
+    <!-- =========================================================================
+         AUCUN FLUX — IMPORTS DES COMPOSANTS ET DE L'APPLICATION VUE.JS
+         Ordre important : les composants doivent être chargés avant app.js
+         ========================================================================= -->
     <script src="components/Accueil.js"></script>
     <script src="components/Nouveau.js"></script>
     <script src="components/NouveauGroupe.js"></script>

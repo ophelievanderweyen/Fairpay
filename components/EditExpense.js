@@ -1,13 +1,35 @@
-// EditExpense.js — Composant "Modifier une dépense"
-// Flux général : montage → 3 requêtes parallèles (dépense + groupes + users) → pré-remplissage → POST update
+/* =========================================================================
+   EDITEXPENSE.JS — Composant "Modifier une dépense"
+   Flux traités : Flux 14 (lecture + modification d'une dépense)
+
+   TABLE DES MATIÈRES
+   ──────────────────────────────────────────────────────────────────────
+    1.  Data
+          Flux 14   groups · users · loading · saving · loadError
+                    form { group_id, payer_id, reason, amount, expense_date }
+                    errors
+    2.  Template  .....  Spinner · Message d'erreur · Formulaire pré-rempli
+    3.  Mounted  ......  Promise.all : get_expense + get_groups + get_users
+    4.  Méthodes
+          Flux 14   validate · saveExpense
+   ──────────────────────────────────────────────────────────────────────
+========================================================================= */
+
 const EditExpensePage = {
+
+    /* =========================================================================
+       AUCUN FLUX — Données internes du composant
+       ========================================================================= */
     data() {
         return {
-            groups: [],
-            users: [],
-            loading: true,
-            saving: false,
-            loadError: null,
+            // Flux 14 : listes pour les menus déroulants (chargées en parallèle au montage)
+            groups:    [],
+            users:     [],
+            // Flux 14 : états d'affichage
+            loading:   true,   // true = spinner affiché pendant le chargement initial
+            saving:    false,  // true = spinner affiché pendant l'envoi de la modification
+            loadError: null,   // Message d'erreur si la dépense est introuvable
+            // Flux 14 : champs du formulaire pré-remplis avec les valeurs actuelles de la dépense
             form: {
                 group_id:     0,
                 payer_id:     0,
@@ -15,10 +37,16 @@ const EditExpensePage = {
                 amount:       '',
                 expense_date: ''
             },
+            // Flux 14 : messages d'erreur de validation affichés sous chaque champ
             errors: {}
         }
     },
 
+    /* =========================================================================
+       FLUX N°14 : MODIFIER UNE DÉPENSE — Template (interface utilisateur)
+       Affiche un spinner pendant le chargement, une erreur si introuvable,
+       sinon le formulaire pré-rempli prêt à être modifié
+       ========================================================================= */
     template: `
         <div class="p-4">
             <div class="top-bar">
@@ -28,15 +56,18 @@ const EditExpensePage = {
                 <h4 class="fw-bold mb-0 text-dark">Modifier la dépense</h4>
             </div>
 
+            <!-- Spinner pendant le chargement parallèle des données (Promise.all) -->
             <div v-if="loading" class="text-center p-5">
                 <div class="spinner-border text-primary" role="status"></div>
                 <p class="text-muted mt-2 small">Chargement...</p>
             </div>
 
+            <!-- Message d'erreur si la dépense est introuvable (ID invalide ou supprimée) -->
             <div v-else-if="loadError" class="alert alert-danger small m-4">
                 <i class="bi bi-exclamation-circle-fill me-1"></i>{{ loadError }}
             </div>
 
+            <!-- Formulaire de modification pré-rempli avec les valeurs actuelles -->
             <div v-else class="light-card">
                 <form @submit.prevent="saveExpense" novalidate>
 
@@ -102,18 +133,22 @@ const EditExpensePage = {
         </div>
     `,
 
+    /* =========================================================================
+       FLUX N°14 : MODIFIER UNE DÉPENSE — Chargement initial en parallèle
+       Flux : montage → Promise.all lance 3 requêtes GET simultanément
+              1. get_expense?id=  → données actuelles de la dépense (pré-remplissage)
+              2. get_groups       → liste des groupes (menu déroulant)
+              3. get_users        → liste des membres (menu déroulant "Payé par")
+       ========================================================================= */
     mounted() {
-        // Récupère l'ID stocké dans app.js lors du clic sur le bouton "Modifier"
+        // Récupère l'ID stocké dans app.js lors du clic sur le crayon (Accueil.js → editExpense)
         const id = this.$parent.editExpenseId;
+        // Sécurité : sans ID, retour immédiat à l'accueil
         if (!id) {
-            this.$parent.currentPage = 'home'; // Sécurité : sans ID, on ne peut pas éditer
+            this.$parent.currentPage = 'home';
             return;
         }
 
-        // Flux → 3 requêtes GET lancées en parallèle (Promise.all attend que les 3 répondent) :
-        // 1. get_expense?id=  → données actuelles de la dépense (pour pré-remplir le formulaire)
-        // 2. get_groups       → liste des groupes (pour le menu déroulant)
-        // 3. get_users        → liste des membres (pour le menu déroulant "Payé par")
         Promise.all([
             fetch('api/backend.php?action=get_expense&id=' + id).then(r => r.json()),
             fetch('api/backend.php?action=get_groups').then(r => r.json()),
@@ -124,7 +159,7 @@ const EditExpensePage = {
                 this.loading   = false;
                 return;
             }
-            // Flux retour ← les 3 JSON reçus → form{} pré-rempli → Vue re-rend le formulaire
+            // Flux retour ← 3 JSON reçus → form{} pré-rempli → Vue re-rend le formulaire
             this.groups = groups;
             this.users  = users;
             this.form   = {
@@ -142,6 +177,10 @@ const EditExpensePage = {
     },
 
     methods: {
+
+        /* =========================================================================
+           FLUX N°14 : MODIFIER UNE DÉPENSE — Validation du formulaire
+           ========================================================================= */
         validate() {
             this.errors = {};
             if (!this.form.group_id || this.form.group_id === 0)
@@ -157,13 +196,17 @@ const EditExpensePage = {
             return Object.keys(this.errors).length === 0;
         },
 
+        /* =========================================================================
+           FLUX N°14 : MODIFIER UNE DÉPENSE — Envoi de la modification
+           Flux : @submit.prevent → validate() → FormData → POST update_expense
+                  → backend UPDATE expenses SET ... WHERE id = :id
+                  → JSON { success: true } → toast + retour Dashboard (déclenche Flux n°9)
+           ========================================================================= */
         async saveExpense() {
-            if (!this.validate()) return; // Stoppe si le formulaire contient des erreurs
+            if (!this.validate()) return;
 
             this.saving = true;
 
-            // Flux → FormData avec l'ID de la dépense + tous les champs modifiés
-            // Le backend fait UPDATE expenses SET ... WHERE id = ? (ciblage par ID)
             const fd = new FormData();
             fd.append('id',           this.$parent.editExpenseId);
             fd.append('group_id',     this.form.group_id);
@@ -174,7 +217,7 @@ const EditExpensePage = {
             try {
                 const res  = await fetch('api/backend.php?action=update_expense', { method: 'POST', body: fd });
                 const data = await res.json();
-                // Flux retour ← JSON { success: true } → toast + retour au tableau de bord
+                // Flux retour ← succès → retour 'home' relance automatiquement le Flux n°9 (Dashboard)
                 if (data.success) {
                     this.$parent.showToast('Dépense modifiée avec succès !', 'success');
                     this.$parent.currentPage = 'home';

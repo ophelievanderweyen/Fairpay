@@ -1,65 +1,82 @@
-/**
- * app.js - Moteur de navigation de Fairpay
- * Gère la navigation (currentPage), l'authentification (login/register) et les toasts
- * Composants enregistrés : AccueilPage, NouveauPage, NouveauGroupePage, GroupesPage, EditExpensePage
- */
+/* =========================================================================
+   APP.JS — Moteur central de Fairpay
+   Flux traités : Flux 1 (Inscription) · Flux 2 (Connexion)
+                  Flux 7 (Déconnexion) · Flux 8 (Navigation)
+
+   TABLE DES MATIÈRES
+   ──────────────────────────────────────────────────────────────────────
+    1.  Data
+          État global    currentPage · currentUser · editExpenseId · toasts
+          Auth partagé   isLogin · error · showPassword
+          Flux 2         login_form  { email, password }
+          Flux 1         register_form  { username, email, password }
+    2.  Méthodes
+          Utilitaires    showToast · removeToast
+          Flux 8         goTo
+          Flux 1 & 2     toggleMode
+          Flux 2         login
+          Flux 1         register
+          Flux 7         (directement dans index.html : currentUser = null)
+    3.  Composants enregistrés
+          accueil-page · nouveau-page · nouveau-groupe-page · groupes-page · edit-expense-page
+    4.  Montage  .....  app.mount('#app')
+   ──────────────────────────────────────────────────────────────────────
+========================================================================= */
 
 /* =========================================================================
-   ÉTAPE 1 : INITIALISATION DE L'APPLICATION VUE
-   ========================================================================= 
-   On importe la fonction createApp depuis Vue.js. 
-   Cette fonction permet de créer notre application principale. 
-*/
+   AUCUN FLUX — Initialisation de l'application Vue
+   On importe createApp depuis Vue.js et on configure l'application principale.
+   ========================================================================= */
 const { createApp } = Vue;
 
-/* =========================================================================
-   ÉTAPE 2 : DÉFINITION DE L'APPLICATION
-   ========================================================================= 
-   On configure ici toutes les données (data) et les actions (methods) 
-   qui seront accessibles partout dans l'application.
-*/
-const app = createApp({ 
-    // Rappel important : dans ce fichier JS, on utilise "this." pour accéder 
-    // aux variables définies dans data(). Dans le fichier HTML, on ne met PAS de "this".
+const app = createApp({
     data() {
         return {
-            /* 
-               Les variables d'état (state) de notre application. 
-               Elles déterminent ce qui s'affiche à l'écran. 
-            */
-            currentPage: 'home',      // Définit quelle page afficher (ex: 'home', 'profil')
-            currentUser: null,        // Stocke les infos de l'utilisateur connecté (null si non connecté)
-            editExpenseId: null,      // ID de la dépense en cours de modification
-            toasts: [],               // Notifications flottantes (success, danger)
-            
-            /* Variables pour la page de connexion / inscription */
-            isLogin: true,            // Vrai = mode connexion, Faux = mode inscription
-            error: null,              // Permet d'afficher un message d'erreur si la connexion échoue
-            showPassword: false,      // Permet de révéler ou masquer le mot de passe dans le formulaire
-            
-            /* Objet stockant les données du formulaire de connexion */
+
+            /* -----------------------------------------------------------------
+               AUCUN FLUX — Variables globales de navigation et d'état
+               ----------------------------------------------------------------- */
+            currentPage:   'home',  // Page actuellement affichée ('home', 'groupes', 'profil'...)
+            currentUser:   null,    // Infos de l'utilisateur connecté (null = non connecté)
+            editExpenseId: null,    // ID de la dépense à modifier, partagé avec EditExpense.js (Flux 15)
+            toasts:        [],      // Liste des notifications flottantes à afficher
+
+            /* -----------------------------------------------------------------
+               FLUX N°1 & 2 — Variables communes aux formulaires d'authentification
+               ----------------------------------------------------------------- */
+            isLogin:      true,   // true = formulaire de connexion, false = formulaire d'inscription
+            error:        null,   // Message d'erreur affiché sous le formulaire actif
+            showPassword: false,  // Bascule l'affichage du mot de passe en clair
+
+            /* -----------------------------------------------------------------
+               FLUX N°2 — Données du formulaire de connexion
+               Liées aux inputs via v-model dans index.html
+               ----------------------------------------------------------------- */
             login_form: {
-                email: '',
+                email:    '',
                 password: ''
             },
-            
-            /* Objet stockant les données du formulaire d'inscription */
+
+            /* -----------------------------------------------------------------
+               FLUX N°1 — Données du formulaire d'inscription
+               Liées aux inputs via v-model dans index.html
+               ----------------------------------------------------------------- */
             register_form: {
                 username: '',
-                email: '',
+                email:    '',
                 password: ''
             }
         }
     },
 
-    /* =========================================================================
-       ÉTAPE 3 : LES ACTIONS / MÉTHODES
-       ========================================================================= 
-       Ici, on définit toutes les fonctions qui réagissent aux actions 
-       de l'utilisateur (clics, soumission de formulaires, etc.).
-    */
     methods: {
-        // Affiche une notification flottante pendant 3 secondes
+
+        /* =========================================================================
+           AUCUN FLUX — Utilitaires globaux partagés entre tous les composants
+           ========================================================================= */
+
+        // Affiche une notification flottante (toast) pendant 3 secondes
+        // Appelée par les composants via this.$parent.showToast('message', 'success'|'danger')
         showToast(message, type = 'success') {
             const id = Date.now();
             this.toasts.push({ id, message, type });
@@ -67,40 +84,54 @@ const app = createApp({
                 this.toasts = this.toasts.filter(t => t.id !== id);
             }, 3000);
         },
+
+        // Ferme manuellement un toast via le bouton ×
         removeToast(id) {
             this.toasts = this.toasts.filter(t => t.id !== id);
         },
 
-        // Fonction pour changer de page (navigation interne)
+        /* =========================================================================
+           FLUX N°8 : NAVIGATION — Changement de page (barre latérale desktop)
+           Flux : clic bouton sidebar → goTo(page) → currentPage change
+                  → Vue.js affiche le composant correspondant + remonte en haut
+           ========================================================================= */
         goTo(page) {
             this.currentPage = page;
-            window.scrollTo(0, 0); // Remonte en haut de la page après le changement
+            window.scrollTo(0, 0); // Remonte en haut de la page à chaque changement
         },
 
-        // Fonction pour basculer entre le formulaire de connexion et celui d'inscription
+        /* =========================================================================
+           FLUX N°1 & 2 — Bascule entre le formulaire de connexion et d'inscription
+           Flux : clic lien "Créer un compte" / "Se connecter" → isLogin s'inverse
+           ========================================================================= */
         toggleMode() {
             this.isLogin = !this.isLogin;
-            this.error = null; // On efface les erreurs précédentes
+            this.error   = null; // Efface les erreurs du formulaire précédent
         },
 
-        /* --- FONCTION DE CONNEXION --- */
+        /* =========================================================================
+           FLUX N°2 : CONNEXION (LOGIN)
+           Flux : @submit.prevent="login" (index.html)
+                  → POST backend.php?action=login avec email + mot de passe en JSON
+                  → currentUser reçoit les données de session
+                  → Vue.js bascule de v-if="!currentUser" vers v-else (l'application)
+           ========================================================================= */
         async login() {
             this.error = null;
             try {
-                // On envoie une requête HTTP (POST) au serveur (backend.php)
                 const res = await fetch('api/backend.php?action=login', {
-                    method: 'POST',
+                    method:  'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(this.login_form) // On envoie l'email et le mot de passe
+                    body:    JSON.stringify(this.login_form)
                 });
-                
-                const data = await res.json(); // On récupère la réponse du serveur
-                
-                // Si la requête a réussi et que le serveur confirme la connexion
+
+                const data = await res.json();
+
+                // Flux retour ← connexion confirmée → currentUser stocke les infos de session PHP
+                // Vue réagit instantanément : le formulaire disparaît, l'application s'affiche
                 if (res.ok && data.connexion) {
-                    this.currentUser = data.user; // On sauvegarde l'utilisateur connecté
+                    this.currentUser = data.user;
                 } else {
-                    // Sinon, on affiche le message d'erreur renvoyé par le serveur
                     this.error = data.message || 'Erreur de connexion';
                 }
             } catch (err) {
@@ -108,50 +139,55 @@ const app = createApp({
             }
         },
 
-        /* --- FONCTION D'INSCRIPTION --- */
+        /* =========================================================================
+           FLUX N°1 : INSCRIPTION (REGISTER)
+           Flux : @submit.prevent="register" (index.html)
+                  → POST backend.php?action=register avec username + email + mot de passe en JSON
+                  → retour automatique en mode connexion + toast de confirmation
+           ========================================================================= */
         async register() {
             this.error = null;
             try {
-                // Même principe que pour la connexion, mais vers l'action 'register'
                 const res = await fetch('api/backend.php?action=register', {
-                    method: 'POST',
+                    method:  'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(this.register_form)
+                    body:    JSON.stringify(this.register_form)
                 });
-                
+
                 const data = await res.json();
-                
+
+                // Flux retour ← inscription réussie → bascule en mode connexion + toast
                 if (res.ok && data.success) {
-                    // Si l'inscription réussit, on repasse en mode connexion
                     this.isLogin = true;
-                    this.error = null;
+                    this.error   = null;
                     this.showToast('Inscription réussie ! Vous pouvez vous connecter.', 'success');
                 } else {
-                    this.error = data.message || 'Erreur lors de l\'inscription';
+                    this.error = data.message || "Erreur lors de l'inscription";
                 }
             } catch (err) {
                 this.error = 'Erreur serveur interne';
             }
         }
+
+        /* =========================================================================
+           FLUX N°7 : DÉCONNEXION — Gérée directement dans index.html
+           @click="currentUser = null" vide la variable → Vue rebascule sur le formulaire
+           Attention : la session PHP côté serveur n'est PAS détruite (pas d'appel fetch)
+           ========================================================================= */
     }
 });
 
 /* =========================================================================
-   ÉTAPE 4 : ENREGISTREMENT DES COMPOSANTS (PAGES)
-   ========================================================================= 
-   On déclare à notre application Vue tous les "morceaux" de page (composants)
-   qu'elle va pouvoir utiliser. Ces composants sont définis dans le dossier /components/
-*/
-app.component('accueil-page', AccueilPage);
-app.component('nouveau-page', NouveauPage);
-app.component('nouveau-groupe-page', NouveauGroupePage);
-app.component('groupes-page', GroupesPage);
-app.component('edit-expense-page', EditExpensePage);
+   AUCUN FLUX — Enregistrement des composants Vue (une ligne = une page)
+   La balise HTML utilisée dans index.html est dérivée du nom (ex: 'accueil-page')
+   ========================================================================= */
+app.component('accueil-page',        AccueilPage);       // Flux 9, 10, 14
+app.component('nouveau-page',        NouveauPage);        // Flux 3, 5
+app.component('nouveau-groupe-page', NouveauGroupePage);  // Flux 4
+app.component('groupes-page',        GroupesPage);        // Flux 3, 6, 11, 12, 13
+app.component('edit-expense-page',   EditExpensePage);    // Flux 14
 
 /* =========================================================================
-   ÉTAPE 5 : LANCEMENT DE L'APPLICATION (MONTAGE)
-   ========================================================================= 
-   Enfin, on dit à Vue de "prendre le contrôle" de la balise HTML 
-   qui possède l'id "app" (<div id="app"> dans index.html).
-*/
+   AUCUN FLUX — Montage : Vue prend le contrôle de <div id="app"> dans index.html
+   ========================================================================= */
 app.mount('#app');

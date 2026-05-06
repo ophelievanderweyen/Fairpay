@@ -1,14 +1,37 @@
-// NouveauGroupe.js — Composant "Créer un groupe"
-// Flux général : formulaire HTML ↔ v-model ↔ form{} → validate() → POST backend.php → toast + retour groupes
+/* =========================================================================
+   NOUVEAUGROUPE.JS — Composant "Créer un groupe"
+   Flux traités : Flux 4 (création de groupe)
+
+   TABLE DES MATIÈRES
+   ──────────────────────────────────────────────────────────────────────
+    1.  Data      form { name, description } · errors · submitting
+    2.  Template  .....  Formulaire : nom · description (compteur 200 car.)
+    3.  Méthodes
+          Flux 4    validate · submitForm
+   ──────────────────────────────────────────────────────────────────────
+========================================================================= */
+
 const NouveauGroupePage = {
+
+    /* =========================================================================
+       AUCUN FLUX — Données internes du composant
+       ========================================================================= */
     data() {
         return {
+            // Flux 4 : champs du formulaire liés aux inputs via v-model
             form: { name: '', description: '' },
+            // Flux 4 : messages d'erreur de validation affichés sous chaque champ
             errors: {},
+            // Flux 4 : passe à true pendant l'envoi pour désactiver le bouton
             submitting: false
         }
     },
 
+    /* =========================================================================
+       FLUX N°4 : AJOUTER UN GROUPE — Template (interface utilisateur)
+       Flux : saisie du formulaire → @submit.prevent="submitForm"
+              → validate() → POST add_group → toast + retour page Groupes
+       ========================================================================= */
     template: `
         <div class="p-4">
             <div class="top-bar mb-4">
@@ -53,6 +76,11 @@ const NouveauGroupePage = {
     `,
 
     methods: {
+
+        /* =========================================================================
+           FLUX N°4 : AJOUTER UN GROUPE — Validation du formulaire
+           Vérifie les règles métier avant d'envoyer la requête au serveur
+           ========================================================================= */
         validate() {
             this.errors = {};
             if (!this.form.name || this.form.name.trim().length < 2)
@@ -62,20 +90,23 @@ const NouveauGroupePage = {
             return Object.keys(this.errors).length === 0;
         },
 
+        /* =========================================================================
+           FLUX N°4 : AJOUTER UN GROUPE — Envoi du formulaire
+           Flux : validate() OK → FormData → POST backend.php?action=add_group
+                  → backend INSERT INTO groups + INSERT INTO participations (créateur)
+                  → JSON { success: true } → toast + retour page Groupes
+           ========================================================================= */
         async submitForm() {
-            if (!this.validate()) return; // Stoppe si le formulaire contient des erreurs
+            if (!this.validate()) return;
 
             this.submitting = true;
 
-            // Flux → FormData envoyé en POST vers backend.php?action=add_group
-            // Le backend INSERT dans groups, puis INSERT dans participations pour le créateur
             const fd = new FormData();
             fd.append('name',        this.form.name.trim());
             fd.append('description', this.form.description.trim());
             try {
                 const res  = await fetch('api/backend.php?action=add_group', { method: 'POST', body: fd });
                 const data = await res.json();
-                // Flux retour ← JSON { success: true } → toast + retour à la page Groupes
                 if (data.success) {
                     this.$parent.showToast('Groupe créé avec succès !', 'success');
                     this.$parent.currentPage = 'groupes';
