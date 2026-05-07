@@ -1,6 +1,7 @@
 /* =========================================================================
    EDITEXPENSE.JS — Composant "Modifier une dépense"
    Flux traités : Flux 14 (lecture + modification d'une dépense)
+                  Flux 15 (suppression d'une dépense)
 
    TABLE DES MATIÈRES
    ──────────────────────────────────────────────────────────────────────
@@ -8,10 +9,12 @@
           Flux 14   groups · users · loading · saving · loadError
                     form { group_id, payer_id, reason, amount, expense_date }
                     errors
-    2.  Template  .....  Spinner · Message d'erreur · Formulaire pré-rempli
+          Flux 15   deleting
+    2.  Template  .....  Spinner · Message d'erreur · Formulaire pré-rempli · Bouton supprimer
     3.  Mounted  ......  Promise.all : get_expense + get_groups + get_users
     4.  Méthodes
           Flux 14   validate · saveExpense
+          Flux 15   deleteExpense
    ──────────────────────────────────────────────────────────────────────
 ========================================================================= */
 
@@ -29,6 +32,8 @@ const EditExpensePage = {
             loading:   true,   // true = spinner affiché pendant le chargement initial
             saving:    false,  // true = spinner affiché pendant l'envoi de la modification
             loadError: null,   // Message d'erreur si la dépense est introuvable
+            // Flux 15 : état pendant la suppression
+            deleting:  false,  // true = bouton supprimer désactivé pendant la requête DELETE
             // Flux 14 : champs du formulaire pré-remplis avec les valeurs actuelles de la dépense
             form: {
                 group_id:     0,
@@ -120,11 +125,19 @@ const EditExpensePage = {
                         <div v-if="errors.payer_id" class="invalid-feedback">{{ errors.payer_id }}</div>
                     </div>
 
-                    <button type="submit" class="btn btn-primary-custom mt-2" :disabled="saving">
+                    <button type="submit" class="btn btn-primary-custom mt-2" :disabled="saving || deleting">
                         <span v-if="saving">
                             <span class="spinner-border spinner-border-sm me-1"></span>Enregistrement...
                         </span>
                         <span v-else>ENREGISTRER LES MODIFICATIONS</span>
+                    </button>
+
+                    <!-- Flux 15 — Bouton supprimer la dépense -->
+                    <button type="button" class="btn btn-outline-danger mt-2 ms-2" :disabled="saving || deleting" @click="deleteExpense">
+                        <span v-if="deleting">
+                            <span class="spinner-border spinner-border-sm me-1"></span>Suppression...
+                        </span>
+                        <span v-else><i class="bi bi-trash3 me-1"></i>Supprimer la dépense</span>
                     </button>
                 </form>
             </div>
@@ -217,7 +230,6 @@ const EditExpensePage = {
             try {
                 const res  = await fetch('api/backend.php?action=update_expense', { method: 'POST', body: fd });
                 const data = await res.json();
-                // Flux retour ← succès → retour 'home' relance automatiquement le Flux n°9 (Dashboard)
                 if (data.success) {
                     this.$parent.showToast('Dépense modifiée avec succès !', 'success');
                     this.$parent.currentPage = 'home';
@@ -228,6 +240,33 @@ const EditExpensePage = {
                 this.$parent.showToast('Erreur réseau.', 'danger');
             }
             this.saving = false;
+        },
+
+        /* =========================================================================
+           FLUX N°15 : SUPPRIMER UNE DÉPENSE
+           Flux : clic "Supprimer" → confirm() → FormData → POST delete_expense
+                  → backend DELETE FROM expenses WHERE id = :id
+                  → toast + retour Dashboard (déclenche Flux n°9)
+           ========================================================================= */
+        async deleteExpense() {
+            if (!confirm('Supprimer définitivement cette dépense ?')) return;
+
+            this.deleting = true;
+            const fd = new FormData();
+            fd.append('id', this.$parent.editExpenseId);
+            try {
+                const res  = await fetch('api/backend.php?action=delete_expense', { method: 'POST', body: fd });
+                const data = await res.json();
+                if (data.success) {
+                    this.$parent.showToast('Dépense supprimée.', 'success');
+                    this.$parent.currentPage = 'home';
+                } else {
+                    this.$parent.showToast(data.error || 'Erreur lors de la suppression.', 'danger');
+                }
+            } catch {
+                this.$parent.showToast('Erreur réseau.', 'danger');
+            }
+            this.deleting = false;
         }
     }
 };

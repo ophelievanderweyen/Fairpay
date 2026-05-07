@@ -11,7 +11,7 @@
                           get_users         — Liste de tous les utilisateurs
     5.  Flux 4  ........  add_group         — Créer un groupe + ajouter le créateur
     6.  Flux 5  ........  add_depense       — Ajouter une dépense
-    7.  Flux 6  ........  delete_group      — Supprimer un groupe
+    7.  Flux 6  ........  delete_group      — Supprimer un groupe (cascade : settlements → expenses → participations → groups)
     8.  Flux 9  ........  get_dashboard     — Tableau de bord (4 requêtes SQL)
     9.  Flux 10  .......  get_monthly_balance — Solde filtré par mois/année
    10.  Flux 11  .......  get_group_totals          — Total avancé par membre
@@ -22,7 +22,8 @@
    12.  Flux 13  .......  add_settlement    — Enregistrer un remboursement
    13.  Flux 14  .......  get_expense       — Charger une dépense (pré-remplissage)
                           update_expense    — Sauvegarder la modification
-   14.  Default  .......  Action inconnue → 400
+   14.  Flux 15  .......  delete_expense    — Supprimer une dépense
+   15.  Default  .......  Action inconnue → 400
    ──────────────────────────────────────────────────────────────────────
 ========================================================================= */
 
@@ -334,7 +335,12 @@ switch ($action) {
     /* =========================================================================
        FLUX N°6 : SUPPRIMER UN GROUPE
        Flux : Groupes.js deleteGroup() → POST FormData (id)
-              → DELETE FROM groups WHERE id → { success: true }
+              → suppression en cascade manuelle (respecte les clés étrangères) :
+                1. DELETE settlements WHERE group_id
+                2. DELETE expenses WHERE group_id
+                3. DELETE participations WHERE group_id
+                4. DELETE groups WHERE id
+              → { success: true }
        ========================================================================= */
     case 'delete_group':
         if (!isset($_SESSION['utilisateur'])) {
@@ -347,9 +353,13 @@ switch ($action) {
             // intval sécurise l'ID en forçant que ce soit bien un nombre entier
             $id = intval($_POST['id']);
             try {
-                $sql = "DELETE FROM `groups` WHERE id = :id";
-                $stmt = $connexion->prepare($sql);
-                $stmt->execute([':id' => $id]);
+                // Suppression dans l'ordre pour respecter les contraintes de clés étrangères
+                $connexion->prepare("DELETE FROM settlements  WHERE group_id = ?")->execute([$id]);
+                $connexion->prepare("DELETE FROM expenses     WHERE group_id = ?")->execute([$id]);
+                $connexion->prepare("DELETE FROM participations WHERE group_id = ?")->execute([$id]);
+
+                $stmt = $connexion->prepare("DELETE FROM `groups` WHERE id = ?");
+                $stmt->execute([$id]);
 
                 header('Content-Type: application/json');
                 echo json_encode(["success" => true]);
@@ -667,6 +677,31 @@ switch ($action) {
                 $stmt->execute([':g'=>$group_id,':p'=>$payer_id,':a'=>$amount,':d'=>$date,':r'=>$reason,':id'=>$id]);
                 echo json_encode(['success' => true]);
             } catch (PDOException $e) { echo json_encode(['error' => $e->getMessage()]); }
+        }
+        exit;
+
+    /* =========================================================================
+       FLUX N°15 : SUPPRIMER UNE DÉPENSE
+       Flux : EditExpense.js deleteExpense() → POST FormData (id)
+              → DELETE FROM expenses WHERE id → { success: true }
+       ========================================================================= */
+    case 'delete_expense':
+        if (!isset($_SESSION['utilisateur'])) {
+            http_response_code(401);
+            header('Content-Type: application/json');
+            echo json_encode(['error' => 'Non connecté']);
+            exit;
+        }
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $id = intval($_POST['id'] ?? 0);
+            header('Content-Type: application/json');
+            try {
+                $stmt = $connexion->prepare("DELETE FROM expenses WHERE id = ?");
+                $stmt->execute([$id]);
+                echo json_encode(['success' => true]);
+            } catch (PDOException $e) {
+                echo json_encode(['error' => $e->getMessage()]);
+            }
         }
         exit;
 
