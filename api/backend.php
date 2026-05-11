@@ -120,6 +120,7 @@ switch ($action) {
         header('Content-Type: application/json'); 
 
         // 1. Vérification que c'est bien une requête POST
+        //Post c'est pour envoyer des données au serveur
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             http_response_code(405);
             echo json_encode(['success' => false, 'message' => 'Action non autorisée']); // Si ce n'est pas le cas, on refuse l'accès
@@ -136,7 +137,7 @@ switch ($action) {
             exit;
         }
 
-        // 3. Nettoyage
+        // 3. Nettoyage des données (on met l'email en minuscules, on enlève les espaces)
         $name = trim($donnees['username']);
         $email = strtolower(trim($donnees['email']));
         $password = $donnees['password'];

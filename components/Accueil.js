@@ -344,10 +344,10 @@ const AccueilPage = {
         // Retourne un dégradé CSS différent selon l'index pour colorier les cartes de groupes
         groupColor(index) {
             const couleurs = [
-                'linear-gradient(135deg, #4361ee, #7c85ff)',
-                'linear-gradient(135deg, #6d28d9, #4361ee)',
-                'linear-gradient(135deg, #3a86ff, #4361ee)',
-                'linear-gradient(135deg, #2d3272, #4361ee)'
+                '#D4889A',
+                '#D4A020',
+                '#D09060',
+                '#C8A8B0'
             ];
             return couleurs[index % couleurs.length];
         },
