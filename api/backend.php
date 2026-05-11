@@ -36,16 +36,16 @@
 */
 
 // Ces réglages ini_set() contrôlent comment PHP envoie et sécurise le cookie qui contient l'identifiant de session.
-ini_set('session.cookie_httponly', 1); // empêche JavaScript d'accéder au cookie (protection contre les injections JS)
+ini_set('session.cookie_httponly', 1); // empêche JavaScript d'accéder au cookie (injection JS= Les injections JS désignent le fait d'insérer du code JavaScript malveillant dans une page web pour qu'il s'exécute dans le navigateur d'une victime)
 ini_set('session.cookie_secure', 1);   // le cookie n'est envoyé que via HTTPS
-ini_set('session.cookie_samesite', 'Strict'); // aide à réduire les attaques CSRF
+ini_set('session.cookie_samesite', 'Strict'); // aide à réduire les attaques CSRF, avec des valeurs comme Strict
 ini_set('session.cookie_lifetime', 86400); // 24 heures : durée raisonnable pour une session utilisateur
 ini_set('session.gc_maxlifetime',  86400); // Garde les données de session côté serveur aussi longtemps
 session_start(); // On démarre la session pour pouvoir stocker les infos de l'utilisateur
 
 // Elle dit au navigateur "à partir de maintenant, utilise HTTPS pour ce site"
 if (!empty($_SERVER['HTTPS'])) { // vérifie si la connexion actuelle est en HTTPS
-    header("Strict-Transport-Security: max-age=31536000"); // mémorise cette règle pendant 1 an (31536000 secondes)
+    header("Strict-Transport-Security: max-age=31536000"); // envoie un en-tête HTTP au navigateur pour lui dire de mémoriser cette règle pendant 31536000 secondes, soit environ 1 an.
 }
 
 /* =========================================================================
@@ -57,14 +57,15 @@ if (!empty($_SERVER['HTTPS'])) { // vérifie si la connexion actuelle est en HTT
    - envoie les en-têtes CORS au navigateur (Access-Control-Allow-Origin, etc.)
    - ajoute les en-têtes de sécurité (cache, anti-XSS, anti-clickjacking)
 */
-require_once 'cors-api.php';
-// On appelle la fonction avec l'hôte actuel et dev=true pour autoriser localhost
+// require_once est utilisé pour les fichiers essentiels car il arrête le script en cas d'erreur
+require_once 'cors-api.php'; // charge le fichier cors
+// On appelle la fonction de configuration CORS du prof (dev mode à true, refuse les autres origines par défaut, pas de debug)
 $host = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'localhost');
-add_headers_origin($host, true, false, false);
+add_headers_origin($host, true, false, false); // autorise cette origine précise, avec des options de sécurité activées selon les paramètres passés
 
 // Si c'est juste une requête OPTIONS (Preflight CORS), on répond 200 et on s'arrête
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { // Qu'est-ce que j'ai le droit de faire ici ?
+    http_response_code(200); // Oui, c'est bon, tu peux continuer
     exit;
 }
 
@@ -115,16 +116,19 @@ switch ($action) {
               → vérification unicité → password_hash → INSERT users → { success: true }
        ========================================================================= */
     case 'register': // Si l'action demandée est register (inscription), exécute ce bloc de code
-        header('Content-Type: application/json');  // La réponse que je vais t'envoyer est en JSON
+        // On utilise json_encode pour envoyer une réponse structurée en JSON au frontend, car JavaScript attend ce format pour pouvoir traiter les messages correctement.
+        header('Content-Type: application/json'); 
 
         // 1. Vérification que c'est bien une requête POST
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             http_response_code(405);
-            echo json_encode(['success' => false, 'message' => 'Action non autorisée']);
+            echo json_encode(['success' => false, 'message' => 'Action non autorisée']); // Si ce n'est pas le cas, on refuse l'accès
+            exit;
             exit;
         }
 
         // 2. Récupération et vérification des données (tous les champs sont obligatoires)
+        // // Vérifie que les champs obligatoires sont remplis
         $donnees = json_decode(file_get_contents("php://input"), true);
         if (!is_array($donnees) || empty($donnees['username']) || empty($donnees['email']) || empty($donnees['password'])) {
             http_response_code(400);
@@ -138,9 +142,15 @@ switch ($action) {
         $password = $donnees['password'];
 
         // 4. Vérification si l'email ou le nom existent déjà dans la base
+        // $stmt : C’est une variable qui contient une requête SQL préparée, mais pas encore exécutée.
+
         $stmt = $connexion->prepare('SELECT id FROM users WHERE email = ? OR name = ?');
-        $stmt->execute([$email, $name]);
+        $stmt->execute([$email, $name]); // Exécute la requête avec l'email fourni
         $existingUser = $stmt->fetch(PDO::FETCH_ASSOC);
+        // PDO = Méthode PHP  pour communiquer avec une base de données de manière sécurisée.
+        // Elle évie lesw injections SQL et fonctionne avec plusieurs types de bases
+
+        //=> prepare - execute - fetch (cycle complet) : 1. ecrire la requete 2. injecter la valeur 3. récupérer le resultat
 
         if ($existingUser) {
             http_response_code(409); // 409 = Conflict (Conflit de données)
@@ -233,10 +243,10 @@ switch ($action) {
             $sql = "SELECT * FROM `groups` ORDER BY created_at DESC";
             $stmt = $connexion->prepare($sql);
             $stmt->execute();
-            $groups = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $groups = $stmt->fetchAll(PDO::FETCH_ASSOC); // Transforme le résultat en tableau PHP
 
             header('Content-Type: application/json');
-            echo json_encode($groups);
+            echo json_encode($groups); // Renvoie les données au format JSON au frontend
         } catch(PDOException $e) {
             header('Content-Type: application/json');
             echo json_encode(["error" => $e->getMessage()]);
