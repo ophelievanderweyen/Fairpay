@@ -57,7 +57,12 @@ const AccueilPage = {
                ----------------------------------------------------------------- */
             calendarYear:  new Date().getFullYear(),  // Année affichée dans le mini-calendrier
             calendarMonth: new Date().getMonth(),      // Mois affiché (0 = janvier, 11 = décembre)
-            monthBalance:  { je_dois: 0, on_me_doit: 0 } // Soldes recalculés pour le mois affiché
+            monthBalance:  { je_dois: 0, on_me_doit: 0 }, // Soldes recalculés pour le mois affiché
+
+            /* -----------------------------------------------------------------
+               AUCUN FLUX — Recherche textuelle (filtre de liste)
+               ----------------------------------------------------------------- */
+            searchQuery: ''
         }
     },
 
@@ -76,6 +81,27 @@ const AccueilPage = {
        Recalculées automatiquement par Vue dès que calendarYear ou calendarMonth change
        ========================================================================= */
     computed: {
+        // Filtre les groupes par nom ou description selon la recherche
+        filteredGroups() {
+            if (!this.searchQuery) return this.groups;
+            const q = this.searchQuery.toLowerCase();
+            return this.groups.filter(g => 
+                (g.name && g.name.toLowerCase().includes(q)) || 
+                (g.description && g.description.toLowerCase().includes(q))
+            );
+        },
+
+        // Filtre les dépenses récentes par motif, nom du groupe ou nom du payeur
+        filteredExpenses() {
+            if (!this.searchQuery) return this.recentExpenses;
+            const q = this.searchQuery.toLowerCase();
+            return this.recentExpenses.filter(e => 
+                (e.reason && e.reason.toLowerCase().includes(q)) || 
+                (e.group_name && e.group_name.toLowerCase().includes(q)) || 
+                (e.payer_name && e.payer_name.toLowerCase().includes(q))
+            );
+        },
+
         // Retourne le nom du mois en français selon calendarMonth (0-11)
         monthName() {
             const mois = ['Janvier','Février','Mars','Avril','Mai','Juin',
@@ -109,7 +135,7 @@ const AccueilPage = {
             <div class="desktop-topbar d-none d-lg-flex">
                 <div class="topbar-search">
                     <i class="bi bi-search topbar-search-icon"></i>
-                    <input type="text" class="topbar-search-input" placeholder="Rechercher une dépense ou un groupe...">
+                    <input type="text" v-model="searchQuery" class="topbar-search-input" placeholder="Rechercher une dépense ou un groupe...">
                 </div>
                 <span class="topbar-date">{{ currentDate }}</span>
             </div>
@@ -170,13 +196,14 @@ const AccueilPage = {
                         <a href="#" @click.prevent="$parent.currentPage = 'groupes'" class="section-link">Voir tout</a>
                     </div>
 
-                    <div v-if="groups.length === 0" class="empty-state">
+                    <div v-if="filteredGroups.length === 0" class="empty-state">
                         <i class="bi bi-collection"></i>
-                        <p>Aucun groupe pour le moment.</p>
+                        <p v-if="searchQuery">Aucun groupe ne correspond à votre recherche.</p>
+                        <p v-else>Aucun groupe pour le moment.</p>
                     </div>
 
-                    <div class="groups-scroll mb-4">
-                        <div v-for="(g, i) in groups" :key="g.id"
+                    <div class="groups-scroll mb-4" v-if="filteredGroups.length > 0">
+                        <div v-for="(g, i) in filteredGroups" :key="g.id"
                              class="group-card-pc"
                              :style="{ background: groupColor(i) }">
                             <div class="group-card-name">{{ g.name }}</div>
@@ -191,9 +218,10 @@ const AccueilPage = {
                         <h6 class="fw-bold text-dark mb-0">Dépenses récentes</h6>
                     </div>
 
-                    <div v-if="recentExpenses.length === 0" class="empty-state">
+                    <div v-if="filteredExpenses.length === 0" class="empty-state">
                         <i class="bi bi-receipt"></i>
-                        <p>Aucune dépense enregistrée.</p>
+                        <p v-if="searchQuery">Aucune dépense ne correspond à votre recherche.</p>
+                        <p v-else>Aucune dépense enregistrée.</p>
                     </div>
 
                     <div v-else class="expenses-table-wrapper">
@@ -209,7 +237,7 @@ const AccueilPage = {
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr v-for="item in recentExpenses" :key="item.id">
+                                <tr v-for="item in filteredExpenses" :key="item.id">
                                     <td class="fw-bold">{{ item.reason }}</td>
                                     <td class="text-muted">{{ item.group_name || '—' }}</td>
                                     <td>

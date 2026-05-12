@@ -19,11 +19,23 @@ const NouveauGroupePage = {
     data() {
         return {
             // Flux 4 : champs du formulaire liés aux inputs via v-model
-            form: { name: '', description: '' },
+            form: { name: '', description: '', members: [] },
             // Flux 4 : messages d'erreur de validation affichés sous chaque champ
             errors: {},
             // Flux 4 : passe à true pendant l'envoi pour désactiver le bouton
-            submitting: false
+            submitting: false,
+            users: [] // Liste des autres utilisateurs
+        }
+    },
+
+    async mounted() {
+        try {
+            const res = await fetch('api/backend.php?action=get_users');
+            let allUsers = await res.json();
+            const myId = this.$parent.currentUser.id;
+            this.users = allUsers.filter(u => u.id !== myId);
+        } catch (err) {
+            console.error("Erreur chargement utilisateurs:", err);
         }
     },
 
@@ -60,6 +72,21 @@ const NouveauGroupePage = {
                         <div class="form-text text-end small"
                              :class="form.description.length > 180 ? 'text-danger' : 'text-muted'">
                             {{ form.description.length }}/200
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold text-muted">AJOUTER DES MEMBRES</label>
+                        <div class="border rounded p-2" style="max-height: 150px; overflow-y: auto; background: white;">
+                            <div v-for="user in users" :key="user.id" class="form-check mb-1">
+                                <input class="form-check-input" type="checkbox" :value="user.id" :id="'user_' + user.id" v-model="form.members">
+                                <label class="form-check-label" :for="'user_' + user.id">
+                                    {{ user.name }}
+                                </label>
+                            </div>
+                            <div v-if="users.length === 0" class="text-muted small p-1">
+                                Aucun autre utilisateur trouvé.
+                            </div>
                         </div>
                     </div>
 
@@ -104,6 +131,7 @@ const NouveauGroupePage = {
             const fd = new FormData();
             fd.append('name',        this.form.name.trim());
             fd.append('description', this.form.description.trim());
+            fd.append('members',     JSON.stringify(this.form.members));
             try {
                 const res  = await fetch('api/backend.php?action=add_group', { method: 'POST', body: fd });
                 const data = await res.json();

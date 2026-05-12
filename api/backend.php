@@ -283,6 +283,7 @@ switch ($action) {
             $name        = htmlspecialchars($_POST['name']);
             $description = htmlspecialchars($_POST['description']);
             $created_by  = (int) $_SESSION['utilisateur']['id']; // ID réel de l'utilisateur connecté
+            $members     = isset($_POST['members']) ? json_decode($_POST['members'], true) : [];
 
             try {
                 $sql = "INSERT INTO `groups` (name, description, created_by) VALUES (:n, :d, :c)";
@@ -291,8 +292,18 @@ switch ($action) {
 
                 // Ajout automatique du créateur comme premier membre du groupe
                 $new_group_id = (int) $connexion->lastInsertId();
-                $stmt2 = $connexion->prepare("INSERT INTO participations (user_id, group_id) VALUES (?, ?)");
+                $stmt2 = $connexion->prepare("INSERT IGNORE INTO participations (user_id, group_id) VALUES (?, ?)");
                 $stmt2->execute([$created_by, $new_group_id]);
+
+                // Ajout des membres sélectionnés
+                if (is_array($members)) {
+                    foreach ($members as $uid) {
+                        $uid = (int) $uid;
+                        if ($uid > 0) {
+                            $stmt2->execute([$uid, $new_group_id]);
+                        }
+                    }
+                }
 
                 header('Content-Type: application/json');
                 echo json_encode(['success' => true]);
