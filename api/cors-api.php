@@ -80,8 +80,7 @@ function add_headers_origin($host, $dev, $acceptAllHost, $showCorsHeaders)
     // 4. Ajout des Headers (En-têtes) de sécurité supplémentaires pour bloquer d'autres attaques
     
     // a) Empêche le navigateur de mettre en cache les requêtes sensibles (pour éviter que quelqu'un d'autre voie tes données sur un PC public)
-    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
-    header('Cache-Control: post-check=0, pre-check=0', false);
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0, post-check=0, pre-check=0');
     header('Pragma: no-cache');
     
     // b) Empêche les attaques de type MIME-sniffing (forcer l'exécution d'un fichier déguisé)
