@@ -1,31 +1,36 @@
 /* =========================================================================
    GROUPES.JS — Composant "Mes Groupes"
-   Flux traités : Flux 3 (liste) · Flux 6 (suppression) · Flux 11 (détails)
-                  Flux 12 (ajouter membre) · Flux 13 (remboursement)
+   Flux traités : Flux 3  (liste groupes)      · Flux 6  (suppression groupe)
+                  Flux 11 (détails groupe)      · Flux 12 (ajouter membre)
+                  Flux 16 (soldes avec participants)
+                  Flux 17 (modifier groupe)     · Flux 18 (quitter groupe)
 
    TABLE DES MATIÈRES
    ──────────────────────────────────────────────────────────────────────
     1.  Data
           Flux 3     groups
-          Flux 11    selectedGroup · groupExpenses · groupTotals
-                     groupMembers · groupSettlements
+          Flux 11    selectedGroup · groupExpenses · groupTotals · groupMembers
           Flux 12    allUsers · newMemberId · showAddMember
+          Flux 16    groupBalances
+          Flux 17    editMode · editForm { name, description }
     2.  Computed
-          Flux 11/13  suggestedDebts  (algorithme glouton de répartition)
+          Flux 16/13  suggestedDebts  (algorithme glouton — soldes avec participants)
     3.  Template
           Liste des groupes  :  Flux 3 (carte cliquable) · Flux 6 (bouton supprimer)
           Panneau de détail  :  Flux 11
             └─ Totaux par membre
             └─ Dépenses du groupe
             └─ Membres + ajout      Flux 12
-            └─ Remboursements       Flux 13
+            └─ Qui doit quoi ?      Flux 16 (calcul participants)
+            └─ Modifier / Quitter   Flux 17 · Flux 18
     4.  Mounted  .....  fetchGroups (Flux 3)
     5.  Méthodes
           Flux 3    fetchGroups
           Flux 6    deleteGroup
           Flux 11   selectGroup
           Flux 12   addMember
-          Flux 13   recordSettlement
+          Flux 17   startEdit · saveGroup
+          Flux 18   leaveGroup
           Util      formatDate
    ──────────────────────────────────────────────────────────────────────
 ========================================================================= */
@@ -49,48 +54,45 @@ const GroupesPage = {
             groupExpenses:    [],    // Dépenses du groupe sélectionné (avec noms payeurs)
             groupTotals:      [],    // Total avancé par membre dans ce groupe
             groupMembers:     [],    // Liste des membres du groupe
-            groupSettlements: [],    // Historique des remboursements enregistrés
 
             /* -----------------------------------------------------------------
                FLUX N°12 — Variables pour l'ajout d'un membre
                ----------------------------------------------------------------- */
             allUsers:      [],    // Tous les utilisateurs de l'appli (pour le menu déroulant)
             newMemberId:   '',    // ID de l'utilisateur sélectionné dans le menu
-            showAddMember: false  // Bascule l'affichage du formulaire d'ajout
+            showAddMember: false, // Bascule l'affichage du formulaire d'ajout
+
+            /* -----------------------------------------------------------------
+               FLUX N°16 — Soldes nets par membre calculés avec les participants réels
+               Remplace le calcul historique en parts égales
+               ----------------------------------------------------------------- */
+            groupBalances: [],
+
+            /* -----------------------------------------------------------------
+               FLUX N°17 — Formulaire de modification du groupe sélectionné
+               ----------------------------------------------------------------- */
+            editMode: false,                    // true = formulaire d'édition visible
+            editForm: { name: '', description: '' } // Champs du formulaire d'édition
         }
     },
 
     /* =========================================================================
-       FLUX N°11 & 13 : DÉTAILS GROUPE — Calcul des remboursements suggérés
-       Algorithme glouton : calcule qui doit quoi à qui d'après les dépenses du groupe
-       Flux : groupTotals[] + groupMembers[] → computed → v-for dans le template (Flux 13)
+       FLUX N°16 : QUI DOIT QUOI ? — Algorithme glouton
+       Utilise groupBalances (soldes nets avec participants réels) fournis par
+       get_group_balances. Associe chaque débiteur au créditeur disponible le plus grand.
+       Flux : groupBalances[] → computed → v-for dans le template
        ========================================================================= */
     computed: {
         suggestedDebts() {
-            if (this.groupTotals.length === 0) return [];
-            const n         = this.groupMembers.length > 0 ? this.groupMembers.length : this.groupTotals.length;
-            const total     = this.groupTotals.reduce((sum, t) => sum + parseFloat(t.total_avance), 0);
-            const fairShare = total / n;
+            if (this.groupBalances.length === 0) return [];
 
-            // Initialise le solde de chaque membre à -fairShare (ils "doivent" leur part)
-            const balances = {};
-            if (this.groupMembers.length > 0) {
-                this.groupMembers.forEach(m => { balances[m.name] = -fairShare; });
-            }
-            // Ajoute ce que chaque personne a réellement payé
-            this.groupTotals.forEach(t => {
-                if (balances[t.nom_payeur] !== undefined) {
-                    balances[t.nom_payeur] += parseFloat(t.total_avance);
-                } else {
-                    balances[t.nom_payeur] = parseFloat(t.total_avance) - fairShare;
-                }
-            });
-
-            // Sépare les créditeurs (solde positif) des débiteurs (solde négatif)
+            // Sépare les créditeurs (solde > 0, on leur doit de l'argent)
+            // des débiteurs (solde < 0, ils doivent de l'argent)
             const creditors = [], debtors = [];
-            Object.entries(balances).forEach(([name, net]) => {
-                if (net > 0.01)   creditors.push({ name, amount: net });
-                else if (net < -0.01) debtors.push({ name, amount: -net });
+            this.groupBalances.forEach(b => {
+                const net = parseFloat(b.net_balance);
+                if      (net >  0.01) creditors.push({ name: b.name, amount:  net });
+                else if (net < -0.01) debtors.push(  { name: b.name, amount: -net });
             });
 
             // Algorithme glouton : associe chaque débiteur au créditeur disponible
@@ -153,14 +155,53 @@ const GroupesPage = {
                  ================================================================ -->
             <div v-if="selectedGroup" class="light-card p-4 mt-4">
 
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h5 class="fw-bold mb-0">
-                        <i class="bi bi-collection-fill text-primary me-2"></i>{{ selectedGroup.name }}
-                    </h5>
-                    <button class="btn btn-outline-secondary btn-sm" @click="selectedGroup = null">
+                <!-- En-tête du panneau : nom du groupe + bouton fermer -->
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        <h5 class="fw-bold mb-1">
+                            <i class="bi bi-collection-fill text-primary me-2"></i>{{ selectedGroup.name }}
+                        </h5>
+                        <p v-if="selectedGroup.description" class="text-muted small mb-0">{{ selectedGroup.description }}</p>
+                    </div>
+                    <button class="btn btn-outline-secondary btn-sm" @click="selectedGroup = null; editMode = false">
                         <i class="bi bi-x-lg"></i>
                     </button>
                 </div>
+
+                <!-- ============================================================
+                     FLUX N°17 — Modifier le groupe · FLUX N°18 — Quitter le groupe
+                     Boutons visibles quand le formulaire d'édition est fermé
+                     ============================================================ -->
+                <div v-if="!editMode" class="d-flex gap-2 mb-4">
+                    <button class="btn btn-outline-primary btn-sm" @click="startEdit">
+                        <i class="bi bi-pencil-fill me-1"></i>Modifier
+                    </button>
+                    <button class="btn btn-outline-danger btn-sm" @click="leaveGroup">
+                        <i class="bi bi-box-arrow-right me-1"></i>Quitter
+                    </button>
+                </div>
+
+                <!-- Flux n°17 — Formulaire d'édition (nom + description) -->
+                <div v-else class="mb-4 p-3 rounded" style="background: #f8f9fa; border: 1px solid #e9ecef;">
+                    <p class="fw-bold small mb-2 text-primary"><i class="bi bi-pencil-fill me-1"></i>Modifier le groupe</p>
+                    <input v-model="editForm.name"
+                           class="form-control form-control-sm mb-2"
+                           placeholder="Nom du groupe">
+                    <textarea v-model="editForm.description"
+                              class="form-control form-control-sm mb-2"
+                              rows="2"
+                              placeholder="Description (optionnelle)"></textarea>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary btn-sm" @click="saveGroup">
+                            <i class="bi bi-check-lg me-1"></i>Enregistrer
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" @click="editMode = false">
+                            Annuler
+                        </button>
+                    </div>
+                </div>
+
+                <hr class="my-3">
 
                 <!-- Flux n°11 — Requête 1 : Total avancé par membre -->
                 <h6 class="section-label mb-3">Total avancé par membre</h6>
@@ -232,18 +273,16 @@ const GroupesPage = {
 
                 <hr class="my-3">
 
-                <!-- Flux n°11 (calcul) + Flux n°13 (enregistrement) — Remboursements -->
-                <h6 class="section-label mb-3">Remboursements</h6>
+                <!-- Flux n°16 — Qui doit quoi ? (algorithme glouton sur soldes participants réels) -->
+                <h6 class="section-label mb-3">Qui doit quoi ?</h6>
 
                 <div v-if="suggestedDebts.length === 0 && groupTotals.length > 0" class="text-success small mb-3">
                     <i class="bi bi-check-circle-fill me-1"></i>Tout est équilibré !
                 </div>
 
-                <!-- Flux n°13 — Remboursements suggérés par l'algorithme glouton -->
                 <div v-if="suggestedDebts.length > 0" class="mb-3">
-                    <p class="text-muted small mb-2 fw-bold">Remboursements suggérés :</p>
                     <div v-for="(debt, i) in suggestedDebts" :key="i"
-                         class="d-flex align-items-center justify-content-between mb-2 p-2 rounded"
+                         class="d-flex align-items-center mb-2 p-2 rounded"
                          style="background: #f8f9fa; border: 1px solid #e9ecef;">
                         <span class="small">
                             <span class="payer-badge me-1" style="font-size: 11px; padding: 2px 5px;">
@@ -256,27 +295,10 @@ const GroupesPage = {
                             </span>
                             <strong>{{ debt.to }}</strong>
                         </span>
-                        <button class="btn btn-sm btn-success ms-2"
-                                @click="recordSettlement(debt.from, debt.to, debt.amount)"
-                                title="Marquer comme remboursé">
-                            <i class="bi bi-check2 me-1"></i>Remboursé
-                        </button>
                     </div>
                 </div>
 
-                <!-- Flux n°11 — Requête 4 : Historique des remboursements enregistrés -->
-                <div v-if="groupSettlements.length > 0">
-                    <p class="text-muted small mb-2 fw-bold">Historique :</p>
-                    <div v-for="(s, i) in groupSettlements" :key="i"
-                         class="text-muted small mb-1 d-flex align-items-center gap-1">
-                        <i class="bi bi-arrow-right-circle-fill text-success"></i>
-                        <span>{{ s.a_paye }} → {{ s.a_recu }} :
-                            <strong class="text-dark">{{ s.amount }} €</strong>
-                            ({{ formatDate(s.settlement_date) }})
-                        </span>
-                    </div>
-                </div>
-                <div v-if="groupSettlements.length === 0 && groupTotals.length === 0" class="text-muted small">
+                <div v-if="groupTotals.length === 0" class="text-muted small">
                     Aucune dépense dans ce groupe.
                 </div>
 
@@ -333,15 +355,17 @@ const GroupesPage = {
         },
 
         /* =========================================================================
-           FLUX N°11 : CONSULTER LES DÉTAILS D'UN GROUPE (4 requêtes ciblées)
+           FLUX N°11 : CONSULTER LES DÉTAILS D'UN GROUPE (5 requêtes ciblées)
            Flux : clic carte groupe → selectGroup(g) → vide les données précédentes
-                  → 4 GET simultanés : dépenses nommées, totaux, membres, remboursements
+                  → 4 GET simultanés : dépenses nommées, totaux, membres, soldes
+                  → 1 GET séparé : soldes avec participants (Flux 16)
                   → panneau de détail s'affiche (v-if="selectedGroup")
            ========================================================================= */
         selectGroup(group) {
             // Referme le panneau si on reclique sur le même groupe
             if (this.selectedGroup && this.selectedGroup.id === group.id) {
                 this.selectedGroup = null;
+                this.editMode = false;
                 return;
             }
             // Vide les données précédentes pour éviter d'afficher l'ancien groupe pendant le chargement
@@ -349,9 +373,10 @@ const GroupesPage = {
             this.groupExpenses    = [];
             this.groupTotals      = [];
             this.groupMembers     = [];
-            this.groupSettlements = [];
+            this.groupBalances    = [];
             this.showAddMember    = false;
             this.newMemberId      = '';
+            this.editMode         = false;
 
             // Requête 1 — Dépenses du groupe avec le nom du payeur (JOIN users)
             fetch(`api/backend.php?action=get_group_expenses_named&group_id=${group.id}`)
@@ -363,15 +388,15 @@ const GroupesPage = {
                 .then(res => res.json())
                 .then(data => { this.groupTotals = Array.isArray(data) ? data : []; });
 
-            // Requête 3 — Membres du groupe (JOIN participations)
+            // Requête 3 — Membres du groupe (JOIN participations, id inclus pour Flux 12/16)
             fetch(`api/backend.php?action=get_group_members&group_id=${group.id}`)
                 .then(res => res.json())
                 .then(data => { this.groupMembers = Array.isArray(data) ? data : []; });
 
-            // Requête 4 — Remboursements enregistrés (double JOIN users)
-            fetch(`api/backend.php?action=get_group_settlements&group_id=${group.id}`)
+            // Requête 4 (Flux 16) — Soldes nets avec participants réels (remplace calcul en parts égales)
+            fetch(`api/backend.php?action=get_group_balances&group_id=${group.id}`)
                 .then(res => res.json())
-                .then(data => { this.groupSettlements = Array.isArray(data) ? data : []; });
+                .then(data => { this.groupBalances = Array.isArray(data) ? data : []; });
 
             // Charge tous les utilisateurs si pas encore fait (nécessaire pour Flux 12 et 13)
             if (this.allUsers.length === 0) {
@@ -399,43 +424,75 @@ const GroupesPage = {
                 this.$parent.showToast('Membre ajouté au groupe !', 'success');
                 this.newMemberId   = '';
                 this.showAddMember = false;
-                // Flux retour ← recharge uniquement les membres pour mettre à jour les badges
+                // Flux retour ← recharge les membres ET les soldes (un nouveau membre change les parts)
                 fetch(`api/backend.php?action=get_group_members&group_id=${this.selectedGroup.id}`)
                     .then(r => r.json())
                     .then(d => { this.groupMembers = Array.isArray(d) ? d : []; });
+                fetch(`api/backend.php?action=get_group_balances&group_id=${this.selectedGroup.id}`)
+                    .then(r => r.json())
+                    .then(d => { this.groupBalances = Array.isArray(d) ? d : []; });
             } else {
                 this.$parent.showToast(data.error || "Erreur lors de l'ajout.", 'danger');
             }
         },
 
         /* =========================================================================
-           FLUX N°13 : ENREGISTRER UN REMBOURSEMENT (SETTLEMENT)
-           Flux : clic "Remboursé" (dette suggérée) → traduit noms en IDs via allUsers.find()
-                  → FormData → POST add_settlement
-                  → backend INSERT INTO settlements avec la date du jour
-                  → toast + recharge groupSettlements[] pour mettre à jour l'historique
+           FLUX N°17 : MODIFIER UN GROUPE
+           Flux : clic "Modifier" → startEdit() → editMode = true → formulaire pré-rempli
+                  clic "Enregistrer" → saveGroup() → FormData → POST update_group
+                  → backend UPDATE groups SET name=?, description=? WHERE id=?
+                  → toast + mise à jour locale + fetchGroups() rafraîchit la liste
            ========================================================================= */
-        async recordSettlement(fromName, toName, amount) {
-            // Traduit les noms en IDs numériques (nécessaires pour les clés étrangères en BDD)
-            const sender   = this.allUsers.find(u => u.name === fromName);
-            const receiver = this.allUsers.find(u => u.name === toName);
-            if (!sender || !receiver) return;
+        startEdit() {
+            this.editForm = {
+                name:        this.selectedGroup.name,
+                description: this.selectedGroup.description || ''
+            };
+            this.editMode = true;
+        },
 
+        async saveGroup() {
+            if (!this.editForm.name || this.editForm.name.trim().length < 2) {
+                this.$parent.showToast('Le nom doit contenir au moins 2 caractères.', 'danger');
+                return;
+            }
             const fd = new FormData();
-            fd.append('group_id',    this.selectedGroup.id);
-            fd.append('sender_id',   sender.id);
-            fd.append('receiver_id', receiver.id);
-            fd.append('amount',      amount);
-            const res  = await fetch('api/backend.php?action=add_settlement', { method: 'POST', body: fd });
+            fd.append('id',          this.selectedGroup.id);
+            fd.append('name',        this.editForm.name.trim());
+            fd.append('description', this.editForm.description.trim());
+            const res  = await fetch('api/backend.php?action=update_group', { method: 'POST', body: fd });
             const data = await res.json();
             if (data.success) {
-                this.$parent.showToast('Remboursement enregistré !', 'success');
-                // Flux retour ← recharge uniquement l'historique pour mettre à jour la liste
-                fetch(`api/backend.php?action=get_group_settlements&group_id=${this.selectedGroup.id}`)
-                    .then(r => r.json())
-                    .then(d => { this.groupSettlements = Array.isArray(d) ? d : []; });
+                this.$parent.showToast('Groupe modifié avec succès !', 'success');
+                this.editMode = false;
+                // Met à jour l'objet local immédiatement (sans attendre le rechargement)
+                this.selectedGroup.name        = this.editForm.name.trim();
+                this.selectedGroup.description = this.editForm.description.trim();
+                this.fetchGroups(); // Actualise aussi la liste dans la colonne gauche
             } else {
-                this.$parent.showToast("Erreur lors de l'enregistrement.", 'danger');
+                this.$parent.showToast(data.error || 'Erreur lors de la modification.', 'danger');
+            }
+        },
+
+        /* =========================================================================
+           FLUX N°18 : QUITTER UN GROUPE
+           Flux : clic "Quitter" → confirm() → FormData → POST leave_group
+                  → backend DELETE FROM participations WHERE user_id = $uid AND group_id = $id
+                  → toast + ferme le panneau + rafraîchit la liste des groupes
+           ========================================================================= */
+        async leaveGroup() {
+            if (!confirm(`Quitter le groupe "${this.selectedGroup.name}" ?\nVous ne pourrez plus y accéder sans y être réajouté.`)) return;
+
+            const fd = new FormData();
+            fd.append('group_id', this.selectedGroup.id);
+            const res  = await fetch('api/backend.php?action=leave_group', { method: 'POST', body: fd });
+            const data = await res.json();
+            if (data.success) {
+                this.$parent.showToast('Vous avez quitté le groupe.', 'success');
+                this.selectedGroup = null;
+                this.fetchGroups(); // Flux 3 : recharge la liste sans ce groupe
+            } else {
+                this.$parent.showToast(data.error || 'Erreur lors de la sortie du groupe.', 'danger');
             }
         },
 

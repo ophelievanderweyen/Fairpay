@@ -9,7 +9,7 @@
     2.  Data
           État          loading · currentDate
           Flux 9        groups · recentExpenses · balance
-          Flux 10       calendarYear · calendarMonth · monthBalance
+          Flux 10       calendarYear · calendarMonth · monthBalance · monthExpenseDates
     3.  Watch  .......  calendarMonth · calendarYear  →  fetchMonthBalance
     4.  Computed
           Flux 10       monthName  (nom du mois en français)
@@ -55,9 +55,10 @@ const AccueilPage = {
             /* -----------------------------------------------------------------
                FLUX N°10 — Données du calendrier et du solde mensuel filtré
                ----------------------------------------------------------------- */
-            calendarYear:  new Date().getFullYear(),  // Année affichée dans le mini-calendrier
-            calendarMonth: new Date().getMonth(),      // Mois affiché (0 = janvier, 11 = décembre)
-            monthBalance:  { je_dois: 0, on_me_doit: 0 }, // Soldes recalculés pour le mois affiché
+            calendarYear:       new Date().getFullYear(),  // Année affichée dans le mini-calendrier
+            calendarMonth:      new Date().getMonth(),      // Mois affiché (0 = janvier, 11 = décembre)
+            monthBalance:       { je_dois: 0, on_me_doit: 0 }, // Soldes recalculés pour le mois affiché
+            monthExpenseDates:  [], // Dates 'YYYY-MM-DD' des dépenses du mois (pour le calendrier)
 
             /* -----------------------------------------------------------------
                AUCUN FLUX — Recherche textuelle (filtre de liste)
@@ -150,7 +151,7 @@ const AccueilPage = {
             </div>
 
             <!-- ================================================================
-                 FLUX N°9 + N°11 — Grille principale du tableau de bord
+                 FLUX N°9 + N°10 — Grille principale du tableau de bord
                  1 colonne sur mobile, 2 colonnes sur desktop (CSS dashboard-grid)
                  ================================================================ -->
             <div v-else class="dashboard-grid">
@@ -338,7 +339,7 @@ const AccueilPage = {
     `,
 
     /* =========================================================================
-       FLUX N°9 + N°11 — Montage du composant
+       FLUX N°9 + N°10 — Montage du composant
        Initialise la date affichée, puis lance les deux requêtes vers le backend
        ========================================================================= */
     mounted() {
@@ -429,13 +430,13 @@ const AccueilPage = {
                 && this.calendarYear  === today.getFullYear();
         },
 
-        // Retourne true si une dépense existe à ce jour dans les dépenses récentes chargées
+        // Retourne true si une dépense existe à ce jour (utilise toutes les dates du mois, pas seulement les 5 dernières)
         hasExpense(day) {
             if (!day) return false;
             const m   = String(this.calendarMonth + 1).padStart(2, '0');
             const d   = String(day).padStart(2, '0');
             const key = `${this.calendarYear}-${m}-${d}`;
-            return this.recentExpenses.some(e => e.expense_date === key);
+            return this.monthExpenseDates.includes(key);
         },
 
         /* =========================================================================
@@ -449,9 +450,18 @@ const AccueilPage = {
             fetch(`api/backend.php?action=get_monthly_balance&year=${this.calendarYear}&month=${m}`)
                 .then(res => res.json())
                 .then(data => {
-                    this.monthBalance = data.error ? { je_dois: 0, on_me_doit: 0 } : data;
+                    if (data.error) {
+                        this.monthBalance      = { je_dois: 0, on_me_doit: 0 };
+                        this.monthExpenseDates = [];
+                    } else {
+                        this.monthBalance      = { je_dois: data.je_dois, on_me_doit: data.on_me_doit };
+                        this.monthExpenseDates = Array.isArray(data.expense_dates) ? data.expense_dates : [];
+                    }
                 })
-                .catch(() => { this.monthBalance = { je_dois: 0, on_me_doit: 0 }; });
+                .catch(() => {
+                    this.monthBalance      = { je_dois: 0, on_me_doit: 0 };
+                    this.monthExpenseDates = [];
+                });
         },
 
         /* =========================================================================

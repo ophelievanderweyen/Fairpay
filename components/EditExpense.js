@@ -2,6 +2,7 @@
    EDITEXPENSE.JS — Composant "Modifier une dépense"
    Flux traités : Flux 14 (lecture + modification d'une dépense)
                   Flux 15 (suppression d'une dépense)
+                  Flux 16 (participants personnalisés — lecture + mise à jour)
 
    TABLE DES MATIÈRES
    ──────────────────────────────────────────────────────────────────────
@@ -10,8 +11,13 @@
                     form { group_id, payer_id, reason, amount, expense_date }
                     errors
           Flux 15   deleting
-    2.  Template  .....  Spinner · Message d'erreur · Formulaire pré-rempli · Bouton supprimer
+          Flux 16   groupMembers · selectedParticipants
+    2.  Template  .....  Spinner · Message d'erreur · Formulaire pré-rempli
+                         Participants (checkboxes, Flux 16)
+                         Bouton supprimer (Flux 15)
     3.  Mounted  ......  Promise.all : get_expense + get_groups + get_users
+                                      + get_expense_participants (Flux 16)
+                         puis get_group_members (Flux 16, nécessite group_id)
     4.  Méthodes
           Flux 14   validate · saveExpense
           Flux 15   deleteExpense
@@ -43,7 +49,15 @@ const EditExpensePage = {
                 expense_date: ''
             },
             // Flux 14 : messages d'erreur de validation affichés sous chaque champ
-            errors: {}
+            errors: {},
+
+            /* -----------------------------------------------------------------
+               FLUX N°16 — Participants personnalisés de la dépense en cours d'édition
+               groupMembers : membres du groupe de cette dépense (pour les checkboxes)
+               selectedParticipants : IDs pré-cochés depuis expense_participants
+               ----------------------------------------------------------------- */
+            groupMembers:         [],
+            selectedParticipants: []
         }
     },
 
@@ -125,6 +139,26 @@ const EditExpensePage = {
                         <div v-if="errors.payer_id" class="invalid-feedback">{{ errors.payer_id }}</div>
                     </div>
 
+                    <!-- =====================================================================
+                         FLUX N°16 : PARTICIPANTS PERSONNALISÉS
+                         Pré-cochés avec les participants enregistrés dans expense_participants
+                         Si aucun participant enregistré, tous les membres sont pré-cochés
+                         ===================================================================== -->
+                    <div class="mb-4" v-if="groupMembers.length > 0">
+                        <label class="form-label text-muted fw-bold" style="font-size: 13px;">Participants à cette dépense</label>
+                        <div class="border rounded p-2" style="background: white;">
+                            <div v-for="m in groupMembers" :key="m.id" class="form-check mb-1">
+                                <input class="form-check-input" type="checkbox"
+                                       :value="m.id" :id="'ep_' + m.id"
+                                       v-model="selectedParticipants">
+                                <label class="form-check-label" :for="'ep_' + m.id">{{ m.name }}</label>
+                            </div>
+                        </div>
+                        <div class="form-text text-muted small">
+                            Modifiez les participants pour recalculer les remboursements.
+                        </div>
+                    </div>
+
                     <button type="submit" class="btn btn-primary-custom mt-2" :disabled="saving || deleting">
                         <span v-if="saving">
                             <span class="spinner-border spinner-border-sm me-1"></span>Enregistrement...
@@ -147,11 +181,13 @@ const EditExpensePage = {
     `,
 
     /* =========================================================================
-       FLUX N°14 : MODIFIER UNE DÉPENSE — Chargement initial en parallèle
-       Flux : montage → Promise.all lance 3 requêtes GET simultanément
-              1. get_expense?id=  → données actuelles de la dépense (pré-remplissage)
-              2. get_groups       → liste des groupes (menu déroulant)
-              3. get_users        → liste des membres (menu déroulant "Payé par")
+       FLUX N°14 + N°16 : CHARGEMENT INITIAL EN PARALLÈLE
+       Flux : montage → Promise.all lance 4 requêtes GET simultanément
+              1. get_expense?id=            → données actuelles de la dépense
+              2. get_groups                 → liste des groupes (menu déroulant)
+              3. get_users                  → liste des membres (menu "Payé par")
+              4. get_expense_participants   → participants déjà enregistrés (Flux 16)
+         puis get_group_members            → membres du groupe (checkboxes Flux 16)
        ========================================================================= */
     mounted() {
         // Récupère l'ID stocké dans app.js lors du clic sur le crayon (Accueil.js → editExpense)
@@ -165,24 +201,40 @@ const EditExpensePage = {
         Promise.all([
             fetch('api/backend.php?action=get_expense&id=' + id).then(r => r.json()),
             fetch('api/backend.php?action=get_groups').then(r => r.json()),
-            fetch('api/backend.php?action=get_users').then(r => r.json())
-        ]).then(([expense, groups, users]) => {
+            fetch('api/backend.php?action=get_users').then(r => r.json()),
+            // Flux 16 : récupère les participants actuels de la dépense (IDs entiers)
+            fetch('api/backend.php?action=get_expense_participants&expense_id=' + id).then(r => r.json())
+        ]).then(([expense, groups, users, participants]) => {
             if (expense.error) {
                 this.loadError = expense.error;
                 this.loading   = false;
                 return;
             }
-            // Flux retour ← 3 JSON reçus → form{} pré-rempli → Vue re-rend le formulaire
-            this.groups = groups;
-            this.users  = users;
-            this.form   = {
+            // Flux retour ← 4 JSON reçus → form{} pré-rempli + participants pré-cochés
+            this.groups  = groups;
+            this.users   = users;
+            // Flux 16 : pré-coche les participants (tableau d'IDs entiers)
+            this.selectedParticipants = Array.isArray(participants) ? participants.map(Number) : [];
+            this.form = {
                 group_id:     parseInt(expense.group_id),
                 payer_id:     parseInt(expense.payer_id),
                 reason:       expense.reason,
                 amount:       expense.amount,
                 expense_date: expense.expense_date
             };
-            this.loading = false;
+
+            // Flux 16 : charge les membres du groupe pour afficher les checkboxes
+            // Fait séparément car nécessite de connaître group_id (issu de get_expense)
+            fetch(`api/backend.php?action=get_group_members&group_id=${expense.group_id}`)
+                .then(r => r.json())
+                .then(members => {
+                    this.groupMembers = Array.isArray(members) ? members : [];
+                    // Si aucun participant n'était enregistré : pré-coche tous les membres (défaut)
+                    if (this.selectedParticipants.length === 0 && this.groupMembers.length > 0) {
+                        this.selectedParticipants = this.groupMembers.map(m => m.id);
+                    }
+                    this.loading = false;
+                });
         }).catch(() => {
             this.loadError = 'Impossible de charger la dépense.';
             this.loading   = false;
@@ -212,7 +264,7 @@ const EditExpensePage = {
         /* =========================================================================
            FLUX N°14 : MODIFIER UNE DÉPENSE — Envoi de la modification
            Flux : @submit.prevent → validate() → FormData → POST update_expense
-                  → backend UPDATE expenses SET ... WHERE id = :id
+                  → backend UPDATE expenses + expense_participants (Flux 16)
                   → JSON { success: true } → toast + retour Dashboard (déclenche Flux n°9)
            ========================================================================= */
         async saveExpense() {
@@ -227,6 +279,10 @@ const EditExpensePage = {
             fd.append('reason',       this.form.reason.trim());
             fd.append('amount',       this.form.amount);
             fd.append('expense_date', this.form.expense_date);
+            // Flux 16 : envoie la liste des participants mise à jour
+            if (this.selectedParticipants.length > 0) {
+                fd.append('participants', JSON.stringify(this.selectedParticipants));
+            }
             try {
                 const res  = await fetch('api/backend.php?action=update_expense', { method: 'POST', body: fd });
                 const data = await res.json();

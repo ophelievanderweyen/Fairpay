@@ -1,6 +1,8 @@
 /* =========================================================================
    NOUVEAU.JS — Composant "Nouvelle dépense"
-   Flux traités : Flux 3 (groupes et utilisateurs) · Flux 5 (ajout dépense)
+   Flux traités : Flux 3  (groupes et utilisateurs)
+                  Flux 5  (ajout dépense)
+                  Flux 16 (participants personnalisés par dépense)
 
    TABLE DES MATIÈRES
    ──────────────────────────────────────────────────────────────────────
@@ -8,10 +10,14 @@
           Flux 3    groups · users
           Flux 5    form { group_id, reason, amount, expense_date, payer_id }
                     errors · submitting
+          Flux 16   groupMembers · selectedParticipants
     2.  Template  .....  Formulaire : groupe · motif · montant · date · payeur
-    3.  Mounted  ......  Chargement parallèle  get_groups + get_users  (Flux 3)
-    4.  Méthodes
+                                     participants (checkboxes, Flux 16)
+    3.  Watch  .......  form.group_id  →  fetchGroupMembers  (Flux 16)
+    4.  Mounted  ......  Chargement parallèle  get_groups + get_users  (Flux 3)
+    5.  Méthodes
           Flux 5    validate · submitForm
+          Flux 16   fetchGroupMembers
    ──────────────────────────────────────────────────────────────────────
 ========================================================================= */
 
@@ -37,12 +43,30 @@ const NouveauPage = {
             // Flux 5 : messages d'erreur de validation affichés sous chaque champ
             errors: {},
             // Flux 5 : passe à true pendant l'envoi pour désactiver le bouton
-            submitting: false
+            submitting: false,
+
+            /* -----------------------------------------------------------------
+               FLUX N°16 — Participants personnalisés par dépense
+               Chargés dynamiquement dès qu'un groupe est sélectionné (watch)
+               ----------------------------------------------------------------- */
+            groupMembers:         [],  // Membres du groupe sélectionné (id + name)
+            selectedParticipants: []   // IDs des membres cochés pour cette dépense
         }
     },
 
     /* =========================================================================
-       FLUX N°4 : AJOUTER UNE DÉPENSE — Template (interface utilisateur)
+       FLUX N°16 : PARTICIPANTS — Observateur sur le groupe sélectionné
+       Flux : sélection d'un groupe → form.group_id change → watch déclenche
+              fetchGroupMembers() → membres chargés → tous pré-cochés par défaut
+       ========================================================================= */
+    watch: {
+        'form.group_id'(newId) {
+            this.fetchGroupMembers(newId);
+        }
+    },
+
+    /* =========================================================================
+       FLUX N°5 : AJOUTER UNE DÉPENSE — Template (interface utilisateur)
        Les menus déroulants "Groupe" et "Payé par" sont peuplés dynamiquement
        depuis la base de données (Flux 3), pas en dur dans le code
        ========================================================================= */
@@ -69,7 +93,7 @@ const NouveauPage = {
                         <div v-if="errors.group_id" class="invalid-feedback">{{ errors.group_id }}</div>
                     </div>
 
-                    <!-- Flux n°4 : champs de la dépense -->
+                    <!-- Flux n°5 : champs de la dépense -->
                     <div class="mb-3">
                         <label class="form-label text-muted fw-bold" style="font-size: 13px;">Motif de la dépense</label>
                         <input type="text" v-model="form.reason" class="form-control"
@@ -110,6 +134,27 @@ const NouveauPage = {
                         <div v-if="errors.payer_id" class="invalid-feedback">{{ errors.payer_id }}</div>
                     </div>
 
+                    <!-- =====================================================================
+                         FLUX N°16 : PARTICIPANTS PERSONNALISÉS
+                         Visible uniquement quand un groupe est sélectionné et ses membres chargés
+                         Par défaut tous les membres sont cochés (partage égal)
+                         Décocher certains membres pour réduire la division à eux seuls
+                         ===================================================================== -->
+                    <div class="mb-4" v-if="groupMembers.length > 0">
+                        <label class="form-label text-muted fw-bold" style="font-size: 13px;">Participants à cette dépense</label>
+                        <div class="border rounded p-2" style="background: white;">
+                            <div v-for="m in groupMembers" :key="m.id" class="form-check mb-1">
+                                <input class="form-check-input" type="checkbox"
+                                       :value="m.id" :id="'p_' + m.id"
+                                       v-model="selectedParticipants">
+                                <label class="form-check-label" :for="'p_' + m.id">{{ m.name }}</label>
+                            </div>
+                        </div>
+                        <div class="form-text text-muted small">
+                            Par défaut tous les membres participent. Décochez ceux qui ne sont pas concernés.
+                        </div>
+                    </div>
+
                     <button type="submit" class="btn btn-primary-custom mt-2"
                             :disabled="groups.length === 0 || submitting">
                         <span v-if="submitting">
@@ -130,7 +175,7 @@ const NouveauPage = {
 
     /* =========================================================================
        FLUX N°3 : AFFICHER LES GROUPES — Chargement des groupes au montage
-       FLUX N°4 : AJOUTER UNE DÉPENSE — Chargement des utilisateurs au montage
+       FLUX N°5 : AJOUTER UNE DÉPENSE — Chargement des utilisateurs au montage
        Flux : montage du composant → deux GET simultanés
               → get_groups → groups[] (menu "Dans quel groupe ?")
               → get_users  → users[]  (menu "Payé par")
@@ -152,7 +197,31 @@ const NouveauPage = {
     methods: {
 
         /* =========================================================================
-           FLUX N°4 : AJOUTER UNE DÉPENSE — Validation du formulaire
+           FLUX N°16 : PARTICIPANTS — Chargement des membres du groupe sélectionné
+           Flux : watch form.group_id → fetchGroupMembers(id) → GET get_group_members
+                  → groupMembers[] peuple les checkboxes
+                  → selectedParticipants pré-coché avec tous les membres (partage égal par défaut)
+           ========================================================================= */
+        async fetchGroupMembers(groupId) {
+            if (!groupId) {
+                this.groupMembers         = [];
+                this.selectedParticipants = [];
+                return;
+            }
+            try {
+                const res  = await fetch(`api/backend.php?action=get_group_members&group_id=${groupId}`);
+                const data = await res.json();
+                this.groupMembers = Array.isArray(data) ? data : [];
+                // Pré-sélectionne tous les membres : comportement par défaut = partage égal
+                this.selectedParticipants = this.groupMembers.map(m => m.id);
+            } catch {
+                this.groupMembers         = [];
+                this.selectedParticipants = [];
+            }
+        },
+
+        /* =========================================================================
+           FLUX N°5 : AJOUTER UNE DÉPENSE — Validation du formulaire
            Vérifie chaque champ avant l'envoi et stocke les erreurs dans errors{}
            ========================================================================= */
         validate() {
@@ -171,9 +240,9 @@ const NouveauPage = {
         },
 
         /* =========================================================================
-           FLUX N°4 : AJOUTER UNE DÉPENSE — Envoi du formulaire
+           FLUX N°5 : AJOUTER UNE DÉPENSE — Envoi du formulaire
            Flux : @submit.prevent → validate() → FormData → POST add_depense
-                  → backend INSERT INTO expenses
+                  → backend INSERT INTO expenses + expense_participants (Flux 16)
                   → JSON { success: true } → toast + retour 'home' (déclenche Flux n°9)
            ========================================================================= */
         async submitForm() {
@@ -186,6 +255,10 @@ const NouveauPage = {
             fd.append('amount',       this.form.amount);
             fd.append('reason',       this.form.reason.trim());
             fd.append('expense_date', this.form.expense_date);
+            // Flux 16 : envoie la liste des participants (vide = tous les membres par défaut côté backend)
+            if (this.selectedParticipants.length > 0) {
+                fd.append('participants', JSON.stringify(this.selectedParticipants));
+            }
             try {
                 const res  = await fetch('api/backend.php?action=add_depense', { method: 'POST', body: fd });
                 const data = await res.json();

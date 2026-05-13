@@ -1,12 +1,17 @@
 /* =========================================================================
    NOUVEAUGROUPE.JS — Composant "Créer un groupe"
-   Flux traités : Flux 4 (création de groupe)
+   Flux traités : Flux 3 (chargement des utilisateurs)
+                  Flux 4 (création de groupe + ajout de membres)
 
    TABLE DES MATIÈRES
    ──────────────────────────────────────────────────────────────────────
-    1.  Data      form { name, description } · errors · submitting
+    1.  Data
+          Flux 3    users  (liste des autres membres disponibles)
+          Flux 4    form { name, description, members } · errors · submitting
     2.  Template  .....  Formulaire : nom · description (compteur 200 car.)
-    3.  Méthodes
+                                     membres (cases à cocher)
+    3.  Mounted  .....  Chargement des utilisateurs sans soi-même (Flux 3 + 4)
+    4.  Méthodes
           Flux 4    validate · submitForm
    ──────────────────────────────────────────────────────────────────────
 ========================================================================= */
@@ -28,11 +33,18 @@ const NouveauGroupePage = {
         }
     },
 
+    /* =========================================================================
+       FLUX N°3 + N°4 : CHARGEMENT DES UTILISATEURS — Préparation du formulaire
+       Flux : montage → GET get_users → filtre l'utilisateur courant (soi-même)
+              → users[] peuple les cases à cocher pour sélectionner les membres
+              Le créateur du groupe est ajouté automatiquement côté backend (Flux 4)
+       ========================================================================= */
     async mounted() {
         try {
             const res = await fetch('api/backend.php?action=get_users');
             let allUsers = await res.json();
             const myId = this.$parent.currentUser.id;
+            // On retire l'utilisateur connecté : il sera ajouté automatiquement par le backend
             this.users = allUsers.filter(u => u.id !== myId);
         } catch (err) {
             console.error("Erreur chargement utilisateurs:", err);

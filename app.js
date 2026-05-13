@@ -185,7 +185,7 @@ app.component('accueil-page',        AccueilPage);       // Flux 9, 10, 14
 app.component('nouveau-page',        NouveauPage);        // Flux 3, 5
 app.component('nouveau-groupe-page', NouveauGroupePage);  // Flux 4
 app.component('groupes-page',        GroupesPage);        // Flux 3, 6, 11, 12, 13
-app.component('edit-expense-page',   EditExpensePage);    // Flux 14
+app.component('edit-expense-page',   EditExpensePage);    // Flux 14, 15
 
 /* =========================================================================
    AUCUN FLUX — Montage : Vue prend le contrôle de <div id="app"> dans index.html
