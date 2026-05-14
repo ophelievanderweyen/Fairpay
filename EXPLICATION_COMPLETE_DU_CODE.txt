@@ -1,0 +1,1800 @@
+================================================================================
+          FAIRPAY — EXPLICATION COMPLÈTE DU CODE (VERSION ENFANT DE 12 ANS)
+================================================================================
+
+Ce document explique ABSOLUMENT TOUT le code de l'application Fairpay, ligne par
+ligne, concept par concept. Rien n'est ignoré. Rien n'est trop compliqué pour
+être expliqué simplement. Bonne lecture !
+
+================================================================================
+PARTIE 0 — C'EST QUOI FAIRPAY ET COMMENT MARCHE UN SITE WEB ?
+================================================================================
+
+Fairpay est une application web qui permet à des groupes d'amis (ou de colocs,
+de famille, etc.) de gérer des dépenses communes. Par exemple, si tu pars en
+vacances avec 4 amis et que chacun paye des choses différentes (courses, essence,
+restaurant...), Fairpay calcule qui doit combien à qui pour que tout soit juste.
+
+--- Comment marche un site web en général ? ---
+
+Imagine que ton site web est un restaurant. Il y a deux endroits :
+
+1. LA SALLE (le FRONTEND) : c'est ce que le client voit et touche. Les tables,
+   les menus, les chaises. Dans Fairpay, c'est tout ce qui s'affiche dans ton
+   navigateur (Chrome, Firefox...) : les boutons, les formulaires, les listes.
+
+2. LA CUISINE (le BACKEND) : c'est là où la nourriture est préparée, invisible
+   pour le client. Dans Fairpay, c'est le serveur PHP qui reçoit les commandes
+   du navigateur, cherche les données dans la base de données, et renvoie une
+   réponse.
+
+3. LE GARDE-MANGER (la BASE DE DONNÉES) : c'est là où tout est stocké de façon
+   permanente. Les utilisateurs, les groupes, les dépenses... Même si tu fermes
+   ton navigateur, les données restent là.
+
+La communication entre la salle et la cuisine se fait via des REQUÊTES. Le
+navigateur envoie une requête ("j'ai besoin de la liste des groupes"), le serveur
+prépare la réponse et la renvoie ("voilà la liste").
+
+Dans Fairpay :
+- Le frontend est en HTML + CSS + JavaScript (avec Vue.js)
+- Le backend est en PHP
+- La base de données est MySQL
+
+================================================================================
+PARTIE 1 — LA STRUCTURE DES FICHIERS (L'ARBORESCENCE)
+================================================================================
+
+Voici tous les fichiers du projet et leur rôle :
+
+Fairpay/
+├── index.html            ← La porte d'entrée du site. Le seul fichier HTML.
+├── app.js                ← Le cerveau de l'application Vue.js.
+├── style.css             ← Le maquillage : couleurs, tailles, positionnement.
+├── .htaccess             ← Les règles de sécurité pour le serveur Apache.
+├── img/
+│   ├── Logo.png          ← Le logo coloré (affiché dans l'onglet du navigateur).
+│   └── Logo gris.png     ← Le logo gris (affiché dans la barre latérale).
+├── components/
+│   ├── Accueil.js        ← La page d'accueil (tableau de bord + calendrier).
+│   ├── Nouveau.js        ← Le formulaire pour ajouter une dépense.
+│   ├── NouveauGroupe.js  ← Le formulaire pour créer un groupe.
+│   ├── Groupes.js        ← La page qui liste et détaille les groupes.
+│   └── EditExpense.js    ← Le formulaire pour modifier/supprimer une dépense.
+└── api/
+    ├── backend.php       ← Le serveur PHP : reçoit toutes les demandes.
+    ├── cors-api.php      ← Le gardien de sécurité des requêtes.
+    └── config/
+        └── db_access.php ← Les identifiants pour se connecter à la base de données.
+
+================================================================================
+PARTIE 2 — LES TECHNOLOGIES UTILISÉES (LE MATÉRIEL)
+================================================================================
+
+HTML (HyperText Markup Language) :
+   C'est le squelette d'une page web. Comme les os d'un corps. Il définit
+   ce qui existe sur la page : "ici il y a un bouton", "ici il y a un texte",
+   "ici il y a une image".
+
+CSS (Cascading Style Sheets) :
+   C'est le maquillage du squelette. Il dit : "ce bouton est rose", "ce texte
+   est grand", "cette boîte est au centre". Sans CSS, le site serait gris et
+   moche.
+
+JavaScript (JS) :
+   C'est les muscles. Il rend la page interactive. Quand tu cliques sur un
+   bouton, JavaScript fait quelque chose : envoie des données, change la page,
+   affiche un message...
+
+Vue.js :
+   C'est un outil (une "bibliothèque") JavaScript qui simplifie énormément le
+   travail. Sans Vue.js, pour afficher une liste de groupes, il faudrait écrire
+   100 lignes de code. Avec Vue.js, 3 lignes suffisent.
+   Vue.js est chargé depuis Internet via CDN :
+   <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js">
+
+Bootstrap :
+   C'est une boîte à outils CSS pré-faite. Elle contient des centaines de
+   classes CSS déjà prêtes. Par exemple : "btn" pour un bouton, "card" pour
+   une carte, "d-flex" pour aligner des éléments côte à côte.
+   Bootstrap est aussi chargé depuis CDN.
+
+PHP (Hypertext Preprocessor) :
+   Langage de programmation qui s'exécute sur le SERVEUR (pas dans le navigateur).
+   Il reçoit les données, les vérifie, parle à la base de données, et renvoie
+   une réponse.
+
+PDO (PHP Data Objects) :
+   C'est la façon sécurisée de PHP pour parler à MySQL. Sans PDO, les pirates
+   pourraient injecter du code malveillant dans les requêtes SQL (attaque
+   appelée "injection SQL").
+
+MySQL :
+   Système de base de données. Comme un grand tableau Excel avec plusieurs
+   feuilles (appelées "tables"), chacune contenant des données structurées.
+
+JSON (JavaScript Object Notation) :
+   Format d'échange de données entre le frontend et le backend. C'est comme
+   un format de liste standardisé :
+   {"nom": "Alice", "montant": 25.50, "groupe": "Vacances"}
+
+================================================================================
+PARTIE 3 — INDEX.HTML — LA PORTE D'ENTRÉE
+================================================================================
+
+index.html est le fichier qui est chargé en premier quand quelqu'un visite le
+site. C'est le seul fichier HTML du projet.
+
+--- LA BALISE <!DOCTYPE html> ---
+
+   <!DOCTYPE html>
+
+   Ça dit au navigateur : "ce fichier est un fichier HTML5 (la version moderne)".
+   Sans ça, le navigateur pourrait s'embrouiller.
+
+--- LA BALISE <html lang="fr"> ---
+
+   <html lang="fr">
+
+   Ouvre le document HTML. lang="fr" dit que le contenu est en français
+   (utile pour les lecteurs d'écran et les moteurs de recherche).
+
+--- LE <head> ---
+
+Le head contient des informations qui ne s'affichent PAS sur la page, mais qui
+sont nécessaires pour la faire fonctionner correctement.
+
+   <meta charset="UTF-8">
+   → Dit au navigateur quel "alphabet" utiliser. UTF-8 supporte tous les
+     caractères : accents français (é, à, ü...), emojis, chinois, etc.
+
+   <meta name="viewport" content="width=device-width, initial-scale=1.0,
+         maximum-scale=1.0, user-scalable=no">
+   → TRÈS IMPORTANT pour les téléphones. Ça dit : "adapte la largeur de la page
+     à l'écran du téléphone". Sans ça, le site apparaîtrait minuscule sur mobile.
+     maximum-scale=1.0 et user-scalable=no empêchent le zoom (pour une meilleure
+     expérience d'application mobile).
+
+   <title>Fairpay - Gestion de dépenses</title>
+   → Le texte qui s'affiche dans l'onglet du navigateur.
+
+   <link rel="icon" type="image/png" href="img/Logo.png">
+   → La petite image (favicon) affichée dans l'onglet. Ici c'est le logo Fairpay.
+
+   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/...bootstrap.min.css"
+         rel="stylesheet">
+   → Charge Bootstrap depuis Internet. Le navigateur télécharge ce fichier CSS
+     une fois et le met en cache.
+
+   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/...">
+   → Charge Bootstrap Icons : une collection de 1800+ icônes vectorielles.
+     On les utilise avec des balises comme <i class="bi bi-trash3"> (poubelle).
+
+   <link rel="stylesheet" href="style.css">
+   → Charge notre propre fichier CSS (le style personnalisé de Fairpay).
+
+   <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
+   → Charge Vue.js depuis Internet. C'est la bibliothèque qui fait fonctionner
+     toute la magie de l'affichage dynamique.
+
+--- <body class="bg-light"> ---
+
+Le body contient tout ce qui s'AFFICHE sur la page.
+class="bg-light" est une classe Bootstrap qui met un fond légèrement gris.
+
+--- <div id="app" v-cloak> ---
+
+   <div id="app" v-cloak>
+
+   C'est le point de montage de Vue.js. TOUT ce qui est à l'intérieur de ce div
+   est contrôlé par Vue.js (défini dans app.js).
+
+   v-cloak est une directive Vue.js spéciale. Elle cache le div tant que Vue.js
+   n'est pas prêt. Sans ça, on verrait brièvement le code brut {{ currentUser }}
+   avant que Vue.js le remplace par la vraie valeur. Le CSS [v-cloak] { display:none }
+   dans style.css gère ça.
+
+--- LA STRUCTURE CONDITIONNELLE PRINCIPALE ---
+
+   <div v-if="!currentUser">
+     ... formulaires de connexion/inscription ...
+   </div>
+   <div v-else class="app-layout">
+     ... l'application complète ...
+   </div>
+
+   v-if et v-else sont des instructions Vue.js. C'est comme un if/else en maths :
+   - Si currentUser est null (personne n'est connecté) : affiche les formulaires
+   - Sinon (quelqu'un est connecté) : affiche l'application
+
+--- FLUX 1 & 2 : CONNEXION / INSCRIPTION ---
+
+La BANNIÈRE GAUCHE :
+   <div class="login-banner d-none d-md-flex ...">
+
+   d-none = cachée par défaut (sur mobile)
+   d-md-flex = visible sur tablette et desktop (écran ≥ 768px)
+   C'est la grande zone dégradée avec le titre "Fairpay" et le logo blanc.
+
+   filter: brightness(0) invert(1) → rend le logo blanc (on applique un filtre CSS
+   qui supprime toute couleur puis inverse = tout devient blanc).
+   opacity: 0.25 → semi-transparent (effet discret).
+
+LE FORMULAIRE DE CONNEXION (Flux 2) :
+   <form v-if="isLogin" @submit.prevent="login">
+
+   v-if="isLogin" : ce formulaire n'apparaît QUE si isLogin est true (mode connexion).
+   @submit.prevent="login" : quand l'utilisateur soumet le formulaire (appuie Entrée
+   ou clique "Se connecter"), Vue.js appelle la fonction login() de app.js.
+   .prevent empêche le comportement par défaut du navigateur (rechargement de page).
+
+   <input v-model="login_form.email" type="email" ...>
+
+   v-model="login_form.email" : c'est la synchronisation en temps réel. Quand tu
+   tapes dans ce champ, la variable login_form.email dans app.js est mise à jour
+   automatiquement. C'est comme une liaison directe entre l'interface et le code.
+
+   :type="showPassword ? 'text' : 'password'"
+
+   Le : devant type veut dire que la valeur est dynamique (calculée par Vue.js).
+   showPassword est un booléen (vrai/faux). Si vrai : type="text" (mot de passe
+   visible). Si faux : type="password" (mot de passe masqué avec des points).
+
+   @click="showPassword = !showPassword"
+
+   Quand on clique sur l'œil, showPassword s'inverse (! = NOT en programmation).
+   Si c'était true, devient false. Si c'était false, devient true.
+
+   :class="showPassword ? 'bi-eye-slash' : 'bi-eye'"
+
+   Change l'icône de l'œil selon que le mot de passe est visible ou non.
+   bi-eye = œil ouvert, bi-eye-slash = œil barré.
+
+LE FORMULAIRE D'INSCRIPTION (Flux 1) :
+   <form v-else @submit.prevent="register">
+
+   v-else : s'affiche quand isLogin est false (mode inscription).
+   Même principe : v-model relie chaque champ aux variables register_form dans app.js.
+
+   <a @click="toggleMode">
+
+   Ce lien appelle toggleMode() dans app.js pour basculer entre connexion et
+   inscription. C'est un <a> sans href (pas de navigation), juste un clic.
+
+--- FLUX 8 : LA NAVIGATION ---
+
+La SIDEBAR (barre latérale) - visible uniquement sur desktop (≥ 992px) :
+   <aside class="sidebar d-none d-lg-flex flex-column">
+
+   d-none = cachée par défaut
+   d-lg-flex = visible sur grand écran (lg = large, ≥ 992px)
+   flex-column = les éléments s'empilent verticalement
+
+   <img src="img/Logo gris.png" style="height: 32px;">
+   → Le logo gris dans la sidebar.
+
+   <button :class="{ active: currentPage === 'home' }" @click="goTo('home')">
+
+   :class="{ active: currentPage === 'home' }" : ajoute la classe CSS "active"
+   uniquement si currentPage est 'home'. C'est ce qui colore le bouton actif.
+   @click="goTo('home')" : appelle goTo('home') dans app.js quand on clique.
+
+La ZONE DE CONTENU PRINCIPAL :
+   <div class="content-area">
+     <accueil-page v-if="currentPage === 'home'" :current-user="currentUser">
+     <groupes-page v-if="currentPage === 'groupes'">
+     <nouveau-page v-if="currentPage === 'nouveau'">
+     <nouveau-groupe-page v-if="currentPage === 'nouveauGroupe'">
+     <edit-expense-page v-if="currentPage === 'editExpense'">
+   </div>
+
+   Ici Vue.js affiche dynamiquement la bonne page selon currentPage.
+   ATTENTION : chaque composant (accueil-page, groupes-page...) est défini
+   dans ses propres fichiers JS et enregistré dans app.js.
+
+   :current-user="currentUser" : transmet les infos de l'utilisateur connecté
+   au composant Accueil.js via une "prop" (comme un paramètre de fonction).
+
+LA PAGE PROFIL (Flux 7) :
+   <div v-if="currentPage === 'profil'" ...>
+     <button @click="currentUser = null">Déconnexion</button>
+   </div>
+
+   La déconnexion est ultra-simple : on met currentUser = null.
+   Vue.js réagit immédiatement et affiche le formulaire de connexion (v-if="!currentUser").
+   ATTENTION : la session PHP côté serveur n'est pas détruite (pas d'appel fetch).
+
+Le BOUTON FLOTTANT FAB (mobile uniquement) :
+   <button v-if="currentPage === 'home'" class="fab-button d-lg-none"
+           @click="currentPage = 'nouveau'">
+     <i class="bi bi-plus-lg"></i>
+   </button>
+
+   FAB = Floating Action Button (bouton d'action flottant).
+   Visible uniquement sur l'accueil (v-if="currentPage === 'home'") et sur mobile
+   (d-lg-none = caché sur desktop). Le + amène directement à "Nouvelle dépense".
+
+La BARRE DU BAS (mobile uniquement) :
+   <nav class="bottom-nav d-lg-none">
+
+   Remplace la sidebar sur téléphone. d-lg-none = cachée sur desktop.
+   Trois boutons : Accueil, Groupes, Profil.
+
+--- LES TOASTS (notifications) ---
+
+   <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:9999">
+     <div v-for="toast in toasts" :key="toast.id" ...>
+
+   v-for="toast in toasts" : Vue.js répète ce bloc pour chaque toast dans le
+   tableau toasts[]. C'est une boucle dans l'HTML !
+   :key="toast.id" : chaque élément d'une boucle Vue.js doit avoir une clé
+   unique pour que Vue.js sache quoi mettre à jour.
+   :class="'text-bg-' + toast.type" : ajoute la couleur (vert pour succès,
+   rouge pour erreur) en combinant du texte avec la variable toast.type.
+   position-fixed top-0 end-0 : coin supérieur droit, fixe même au scroll.
+   z-index:9999 : affiché au-dessus de TOUT (z-index = profondeur).
+
+--- LES IMPORTS DE SCRIPTS ---
+
+   <script src="components/Accueil.js"></script>
+   <script src="components/Nouveau.js"></script>
+   <script src="components/NouveauGroupe.js"></script>
+   <script src="components/Groupes.js"></script>
+   <script src="components/EditExpense.js"></script>
+   <script src="app.js"></script>
+
+   L'ORDRE EST CRUCIAL. Les composants définissent des variables globales
+   (AccueilPage, NouveauPage, etc.) que app.js utilise. Si app.js était chargé
+   avant, ces variables n'existeraient pas encore et ça planterait.
+   Les scripts sont à la FIN du body (avant </body>) car ils peuvent modifier
+   le DOM, donc le HTML doit déjà exister.
+
+================================================================================
+PARTIE 4 — APP.JS — LE CERVEAU DE L'APPLICATION
+================================================================================
+
+app.js est le fichier principal de Vue.js. Il contient l'état global de
+l'application et les fonctions partagées entre tous les composants.
+
+--- CRÉATION DE L'APPLICATION VUE ---
+
+   const { createApp } = Vue;
+
+   On "déstructure" l'objet Vue pour extraire seulement la fonction createApp.
+   C'est comme ouvrir une boîte à outils et prendre seulement le marteau.
+
+   const app = createApp({ ... });
+
+   On crée une nouvelle application Vue. Tout le contenu de {...} est la
+   configuration de l'application.
+
+--- LA FONCTION data() ---
+
+   data() {
+     return {
+       currentPage: 'home',
+       currentUser: null,
+       ...
+     }
+   }
+
+   data() est une fonction spéciale de Vue.js qui retourne toutes les VARIABLES
+   RÉACTIVES de l'application. "Réactif" signifie que quand une variable change,
+   Vue.js met automatiquement à jour tous les endroits de l'HTML qui l'utilisent.
+
+   C'est comme un tableau blanc où on peut écrire et effacer. Dès qu'on efface
+   quelque chose, Vue.js met à jour l'écran immédiatement.
+
+   currentPage: 'home'
+   → La page actuellement affichée. Peut valoir :
+     'home', 'groupes', 'nouveau', 'nouveauGroupe', 'profil', 'editExpense'
+
+   currentUser: null
+   → null signifie "rien" / "vide". Au démarrage, personne n'est connecté.
+     Après connexion, contient un objet : { id: 3, pseudo: "Alice", ... }
+
+   editExpenseId: null
+   → Stocke l'ID d'une dépense quand on veut la modifier.
+     Partagé entre Accueil.js (qui set l'ID) et EditExpense.js (qui le lit).
+
+   toasts: []
+   → Tableau vide au départ. Quand showToast() est appelé, on y ajoute un objet.
+     Vue.js affiche chaque toast via v-for dans index.html.
+
+   isLogin: true
+   → true = afficher le formulaire de connexion.
+     false = afficher le formulaire d'inscription.
+
+   error: null
+   → Le message d'erreur sous le formulaire. null = pas d'erreur.
+
+   showPassword: false
+   → false = mot de passe masqué (points). true = mot de passe visible.
+
+   login_form: { email: '', password: '' }
+   → Objet qui stocke les valeurs tapées dans le formulaire de connexion.
+     Lié aux inputs via v-model dans index.html.
+
+   register_form: { username: '', email: '', password: '' }
+   → Idem pour le formulaire d'inscription.
+
+--- LA MÉTHODE showToast() ---
+
+   showToast(message, type = 'success') {
+     const id = Date.now();
+     this.toasts.push({ id, message, type });
+     setTimeout(() => {
+       this.toasts = this.toasts.filter(t => t.id !== id);
+     }, 3000);
+   }
+
+   Date.now() : retourne le timestamp actuel en millisecondes. C'est un nombre
+   unique (ex: 1715700000123). Utilisé comme identifiant unique du toast.
+
+   this.toasts.push(...) : ajoute un objet au tableau toasts.
+
+   setTimeout(() => { ... }, 3000) : exécute le code à l'intérieur après 3000
+   millisecondes (3 secondes).
+
+   this.toasts.filter(t => t.id !== id) : crée un NOUVEAU tableau en gardant
+   seulement les toasts dont l'id est DIFFÉRENT de celui qu'on veut supprimer.
+   C'est la façon Vue.js de supprimer un élément d'un tableau.
+
+   type = 'success' : valeur par défaut. Si on appelle showToast("Bravo!") sans
+   préciser le type, ce sera automatiquement 'success'.
+
+--- LA MÉTHODE removeToast() ---
+
+   removeToast(id) {
+     this.toasts = this.toasts.filter(t => t.id !== id);
+   }
+
+   Même logique que le filtre dans showToast. Appelée quand l'utilisateur clique
+   sur le × d'un toast pour le fermer manuellement.
+
+--- LA MÉTHODE goTo() ---
+
+   goTo(page) {
+     this.currentPage = page;
+     window.scrollTo(0, 0);
+   }
+
+   Change la page visible et remonte l'écran en haut (x=0, y=0).
+   window est l'objet global du navigateur. scrollTo(x, y) fait défiler la fenêtre.
+
+--- LA MÉTHODE toggleMode() ---
+
+   toggleMode() {
+     this.isLogin = !this.isLogin;
+     this.error = null;
+   }
+
+   ! (NOT) inverse le booléen : true devient false, false devient true.
+   Remet error à null pour effacer les anciens messages d'erreur.
+
+--- LA MÉTHODE login() (async) ---
+
+   async login() {
+     this.error = null;
+     try {
+       const res = await fetch('api/backend.php?action=login', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify(this.login_form)
+       });
+       const data = await res.json();
+       if (res.ok && data.connexion) {
+         this.currentUser = data.user;
+       } else {
+         this.error = data.message || 'Erreur de connexion';
+       }
+     } catch (err) {
+       this.error = 'Erreur serveur interne';
+     }
+   }
+
+   async : Ce mot-clé signifie que la fonction est "asynchrone". Elle peut
+   faire une pause (await) en attendant une réponse du serveur sans bloquer
+   tout le reste du site.
+
+   fetch() : fonction JavaScript pour envoyer une requête HTTP au serveur.
+   C'est comme envoyer un SMS au backend : "voici mes identifiants, est-ce
+   que tu peux me connecter ?".
+
+   method: 'POST' : on ENVOIE des données (pas juste une lecture).
+   headers: { 'Content-Type': 'application/json' } : dit au serveur que les
+   données sont en format JSON.
+   body: JSON.stringify(this.login_form) : convertit l'objet JavaScript
+   { email: "alice@test.fr", password: "1234" } en texte JSON pour l'envoi.
+
+   await : "attends" que fetch() ait reçu la réponse du serveur avant de
+   continuer. Sans await, le code continuerait avant d'avoir la réponse.
+
+   res.json() : transforme la réponse JSON du serveur en objet JavaScript.
+   Aussi asynchrone, d'où le deuxième await.
+
+   res.ok : true si le code HTTP de la réponse est 200-299 (succès).
+   data.connexion : propriété renvoyée par le backend si la connexion réussit.
+
+   this.currentUser = data.user : stocke les infos de l'utilisateur. Vue.js
+   détecte le changement et bascule immédiatement vers l'application.
+
+   try/catch : si une erreur survient n'importe où dans le try (réseau coupé,
+   serveur planté...), le catch attrape l'erreur et affiche un message.
+
+--- LA MÉTHODE register() ---
+
+   async register() { ... }
+
+   Même principe que login(). Envoie username+email+password au backend.
+   Si succès : this.isLogin = true (retour au formulaire de connexion) + toast.
+   Si erreur : this.error = message d'erreur.
+
+--- ENREGISTREMENT DES COMPOSANTS ---
+
+   app.component('accueil-page', AccueilPage);
+   app.component('nouveau-page', NouveauPage);
+   app.component('nouveau-groupe-page', NouveauGroupePage);
+   app.component('groupes-page', GroupesPage);
+   app.component('edit-expense-page', EditExpensePage);
+
+   Cette étape dit à Vue.js : "quand tu vois la balise <accueil-page> dans
+   le HTML, affiche le composant défini dans la variable AccueilPage."
+
+   AccueilPage (sans tirets) est la variable JavaScript définie dans Accueil.js.
+   'accueil-page' (avec tirets) est le nom de la balise HTML à utiliser.
+   C'est la convention Vue.js : kebab-case pour les balises HTML.
+
+--- MONTAGE DE L'APPLICATION ---
+
+   app.mount('#app');
+
+   Cette ligne finale dit à Vue.js de "prendre le contrôle" du div avec
+   id="app" dans index.html. À partir de là, toutes les directives Vue.js
+   (v-if, v-for, v-model, @click...) dans ce div deviennent actives.
+
+================================================================================
+PARTIE 5 — ACCUEIL.JS — LE TABLEAU DE BORD
+================================================================================
+
+AccueilPage est le composant principal. Il affiche le résumé de tout :
+soldes, groupes récents, dépenses récentes, et le calendrier mensuel.
+
+--- LES PROPS ---
+
+   props: ['currentUser']
+
+   Les props sont des paramètres qu'un composant reçoit de son parent.
+   Ici, currentUser est passé depuis index.html avec :current-user="currentUser".
+   Le composant peut alors utiliser this.currentUser.pseudo, this.currentUser.id, etc.
+
+--- LES DATA ---
+
+   currentDate: ''
+   → La date d'aujourd'hui affichée dans la barre supérieure desktop.
+     Exemple : "Mercredi 14 Mai 2026"
+
+   groups: []
+   → Tableau vide au départ. Rempli par fetchDashboard() avec les 5 groupes récents.
+
+   recentExpenses: []
+   → Tableau des 5 dernières dépenses. Chaque objet contient :
+     { id, reason, amount, expense_date, group_name, payer_name }
+
+   balance: { je_dois: 0, on_me_doit: 0, total_mois: 0 }
+   → Les soldes globaux. Calculés côté PHP et renvoyés par get_dashboard.
+
+   loading: true
+   → Au démarrage, true = afficher le spinner de chargement.
+     Passe à false quand fetchDashboard() reçoit les données.
+
+   calendarYear: new Date().getFullYear()
+   → L'année affichée dans le mini-calendrier. new Date() crée un objet Date.
+     getFullYear() retourne 2026 (ou l'année actuelle).
+
+   calendarMonth: new Date().getMonth()
+   → Le mois affiché. getMonth() retourne 0 pour Janvier, 11 pour Décembre.
+     ATTENTION : JavaScript numérote les mois de 0 à 11 !
+
+   monthBalance: { je_dois: 0, on_me_doit: 0 }
+   → Soldes du mois affiché dans le calendrier (pas les soldes globaux).
+
+   monthExpenseDates: []
+   → Tableau de dates au format 'YYYY-MM-DD' où il y a eu des dépenses.
+     Utilisé pour mettre des points sur le calendrier.
+
+   searchQuery: ''
+   → Le texte tapé dans la barre de recherche.
+
+--- LE WATCH ---
+
+   watch: {
+     calendarMonth() { this.fetchMonthBalance(); },
+     calendarYear()  { this.fetchMonthBalance(); }
+   }
+
+   Les watchers "surveillent" des variables. Quand calendarMonth change
+   (clic sur une flèche du calendrier), Vue.js appelle automatiquement
+   fetchMonthBalance() pour recharger les soldes du nouveau mois.
+   C'est de la réactivité en action !
+
+--- LES COMPUTED ---
+
+Les computed sont des propriétés calculées. Vue.js les recalcule automatiquement
+quand les variables dont elles dépendent changent.
+
+   filteredGroups() :
+   Filtre groups[] selon searchQuery. Si searchQuery est vide, retourne tout.
+   Sinon, garde seulement les groupes dont le nom ou la description contient
+   le texte recherché (toLowerCase pour ignorer majuscules/minuscules).
+
+   filteredExpenses() :
+   Idem pour les dépenses : filtre par motif, nom du groupe, ou nom du payeur.
+
+   monthName() :
+   Convertit calendarMonth (nombre 0-11) en nom français.
+   mois[0] = 'Janvier', mois[6] = 'Juillet', etc.
+
+   calendarCells() :
+   C'est la plus complexe. Elle génère le tableau des 35-42 cases du calendrier.
+
+   Explication :
+   - new Date(année, mois, 1).getDay() : quel jour de la semaine est le 1er du mois ?
+     getDay() retourne 0=Dimanche, 1=Lundi, ..., 6=Samedi.
+
+   - (firstDay + 6) % 7 : convertit le format américain (0=Dimanche) en format
+     européen (0=Lundi). Formule mathématique :
+     Dimanche(0) → (0+6)%7 = 6 (dimanche = dernier jour de la semaine)
+     Lundi(1) → (1+6)%7 = 0 (lundi = premier jour)
+     Mardi(2) → (2+6)%7 = 1 ... etc.
+
+   - new Date(année, mois+1, 0).getDate() : nombre de jours dans le mois.
+     mois+1 = mois suivant, jour 0 = dernier jour du mois précédent. Astuce !
+
+   - On ajoute "decalage" fois null au tableau (cases vides avant le 1er).
+   - Puis on ajoute les numéros 1 à nbJours.
+   - Résultat : [null, null, 1, 2, 3, 4, 5, 6, ...31]
+
+--- LE TEMPLATE ---
+
+   <div class="desktop-topbar d-none d-lg-flex">
+
+   Barre supérieure visible seulement sur desktop. Contient la recherche et la date.
+
+   <input v-model="searchQuery" ...>
+   → Liaison bidirectionnelle. Taper dans cet input met à jour searchQuery.
+     filteredGroups et filteredExpenses (computed) se recalculent immédiatement.
+
+   <div v-if="loading" ...>
+     <div class="spinner-border ...">
+
+   Le spinner tourne pendant que fetchDashboard() charge les données.
+   Remplacé par le contenu quand loading passe à false.
+
+   <div v-else class="dashboard-grid">
+
+   La grille principale : 2 colonnes sur desktop, 1 sur mobile.
+
+   CARTE DE BIENVENUE :
+   <button @click="$parent.currentPage = 'nouveau'">
+   → $parent accède à l'application parente (app.js). Ça change la page
+     directement depuis le composant enfant.
+
+   CARTES DE SOLDES :
+   {{ balance.je_dois }} €  et  {{ balance.on_me_doit }} €
+   → Double accolades {{ }} = interpolation Vue.js. Affiche la valeur de la variable.
+
+   LISTE DES GROUPES :
+   <div v-for="(g, i) in filteredGroups" :key="g.id"
+        :style="{ background: groupColor(i) }">
+
+   v-for="(g, i)" : boucle où g = groupe actuel, i = index (0, 1, 2...).
+   :style="{ background: groupColor(i) }" : applique une couleur différente
+   selon l'index via la fonction groupColor().
+
+   TABLEAU DES DÉPENSES :
+   <button @click="editExpense(item.id)">
+   → Clic sur le crayon → editExpense() → stocke l'ID → affiche EditExpense.js.
+
+   CALENDRIER :
+   <span v-for="(day, i) in calendarCells" :key="i"
+         :class="{
+           'cal-today': isToday(day),
+           'cal-has-expense': hasExpense(day)
+         }">
+
+   :class avec un objet : ajoute/retire des classes CSS selon des conditions.
+   Si isToday(day) retourne true → ajoute la classe 'cal-today' (surbrillance).
+   Si hasExpense(day) retourne true → ajoute 'cal-has-expense' (point coloré).
+
+--- LES MÉTHODES ---
+
+   formatDate(dateStr) :
+   Convertit '2026-05-14' (format SQL) en '14/05/2026' (format français).
+   split('-') découpe la chaîne selon les tirets → ['2026', '05', '14'].
+   On réassemble dans l'ordre d+'/'+m+'/'+y.
+
+   formatTodayDate() :
+   Génère "Mercredi 14 Mai 2026". Utilise un objet Date, getDay(), getDate(),
+   getMonth(), getFullYear() et des tableaux de noms.
+
+   groupColor(index) :
+   Retourne une couleur selon l'index.
+   % (modulo) : index % 4 retourne toujours 0, 1, 2, ou 3.
+   Ainsi les couleurs se répètent cycliquement : 0→rose, 1→or, 2→orange, 3→mauve.
+
+   initials(pseudo) :
+   pseudo.charAt(0) prend le premier caractère.
+   toUpperCase() le met en majuscule.
+   Exemple : "alice" → "A". Utilisé pour les avatars.
+
+   fetchDashboard() :
+   Envoie GET api/backend.php?action=get_dashboard.
+   Reçoit { groups, expenses, balance }.
+   Met à jour les variables data correspondantes.
+   loading = false cache le spinner.
+
+   prevMonth() / nextMonth() :
+   Décrémente/incrémente calendarMonth.
+   GESTION DES BORDS : si mois = 0 (Janvier) et on clique "précédent" →
+   mois = 11 (Décembre) ET année diminue de 1. Idem pour l'autre sens.
+
+   isToday(day) :
+   Retourne true si le jour donné correspond à aujourd'hui.
+   Compare day avec today.getDate(), calendarMonth avec today.getMonth(), etc.
+
+   hasExpense(day) :
+   Construit une chaîne de date format 'YYYY-MM-DD' et vérifie si elle est
+   dans monthExpenseDates (tableau reçu du backend).
+   padStart(2, '0') : si le mois est "5", ça donne "05" (complète à 2 chiffres).
+
+   fetchMonthBalance() :
+   Envoie GET avec year= et month= (calendarMonth+1 car PHP attend 1-12).
+   Met à jour monthBalance et monthExpenseDates.
+
+   editExpense(id) :
+   this.$parent.editExpenseId = id → stocke l'ID dans app.js
+   this.$parent.currentPage = 'editExpense' → affiche le composant EditExpense.js
+
+================================================================================
+PARTIE 6 — NOUVEAU.JS — AJOUTER UNE DÉPENSE
+================================================================================
+
+Ce composant affiche le formulaire pour enregistrer une nouvelle dépense.
+
+--- LES DATA ---
+
+   groups: [], users: []
+   → Chargés au montage depuis le backend. Peuplent les menus déroulants.
+
+   form: { group_id: '', reason: '', amount: '', expense_date: '', payer_id: '' }
+   → Les champs du formulaire liés aux inputs via v-model.
+
+   errors: {}
+   → Objet vide au départ. Rempli par validate() avec les messages d'erreur.
+     errors.reason = "Le motif doit contenir au moins 2 caractères."
+
+   submitting: false
+   → Passe à true pendant l'envoi pour désactiver le bouton (évite les doubles envois).
+
+   groupMembers: []
+   → Membres du groupe sélectionné. Peuplent les cases à cocher des participants.
+
+   selectedParticipants: []
+   → Tableau des IDs des membres cochés. Par défaut = tous les membres.
+
+--- LE WATCH ---
+
+   'form.group_id'(newId) {
+     this.fetchGroupMembers(newId);
+   }
+
+   Surveille form.group_id. Quand l'utilisateur sélectionne un groupe,
+   fetchGroupMembers() charge automatiquement les membres de ce groupe.
+   Les membres apparaissent alors comme cases à cocher.
+
+--- LE TEMPLATE ---
+
+   <select v-model="form.group_id" :class="{ 'is-invalid': errors.group_id }">
+     <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }}</option>
+   </select>
+
+   v-for sur les options : génère une <option> par groupe.
+   :value="g.id" : la valeur envoyée au serveur sera l'ID numérique du groupe.
+   :class="{ 'is-invalid': errors.group_id }" : si errors.group_id existe,
+   ajoute la classe Bootstrap 'is-invalid' qui affiche une bordure rouge.
+
+   <div v-if="errors.group_id" class="invalid-feedback">{{ errors.group_id }}</div>
+
+   Affiche le message d'erreur sous le champ si errors.group_id est rempli.
+
+   SECTION PARTICIPANTS (Flux 16) :
+   <div class="mb-4" v-if="groupMembers.length > 0">
+     <div v-for="m in groupMembers" :key="m.id" class="form-check">
+       <input type="checkbox" :value="m.id" v-model="selectedParticipants">
+     </div>
+   </div>
+
+   Cette section est cachée tant qu'aucun groupe n'est sélectionné.
+   Chaque checkbox a :value="m.id" et est liée à selectedParticipants via v-model.
+   Quand plusieurs checkboxes sont liées au même tableau v-model, Vue.js gère
+   automatiquement l'ajout/retrait des valeurs dans le tableau.
+
+   <button :disabled="groups.length === 0 || submitting">
+
+   Le bouton est désactivé si aucun groupe n'existe OU si l'envoi est en cours.
+
+--- LES MÉTHODES ---
+
+   fetchGroupMembers(groupId) :
+   Appel GET get_group_members&group_id=X.
+   Reçoit la liste des membres.
+   selectedParticipants = groupMembers.map(m => m.id) : sélectionne tous par défaut.
+   .map() transforme chaque membre en son ID. Ex: [{id:1,...},{id:3,...}] → [1,3].
+
+   validate() :
+   Vérifie chaque champ et remplit errors{} si invalide.
+   Object.keys(this.errors).length === 0 : vérifie si errors est vide (pas d'erreurs).
+   Object.keys() retourne un tableau des clés d'un objet.
+
+   submitForm() :
+   new FormData() : crée un objet pour envoyer des données en format formulaire.
+   fd.append('key', 'value') : ajoute une paire clé/valeur.
+   JSON.stringify(this.selectedParticipants) : convertit [1,3,5] en "[1,3,5]".
+   Envoi POST avec body: fd.
+   Si succès : toast + retour 'home'.
+
+================================================================================
+PARTIE 7 — NOUVEAUGROUPE.JS — CRÉER UN GROUPE
+================================================================================
+
+Formulaire simple pour créer un nouveau groupe et y inviter des membres.
+
+--- MOUNTED() ---
+
+   async mounted() {
+     const res = await fetch('api/backend.php?action=get_users');
+     let allUsers = await res.json();
+     const myId = this.$parent.currentUser.id;
+     this.users = allUsers.filter(u => u.id !== myId);
+   }
+
+   Au chargement du composant, récupère tous les utilisateurs.
+   this.$parent.currentUser.id : accède à l'ID de l'utilisateur connecté via
+   la propriété currentUser du parent (app.js).
+   .filter(u => u.id !== myId) : retire l'utilisateur connecté de la liste
+   (il sera ajouté automatiquement comme créateur par le backend).
+
+--- LE TEMPLATE ---
+
+   <div class="form-text text-end small"
+        :class="form.description.length > 180 ? 'text-danger' : 'text-muted'">
+     {{ form.description.length }}/200
+   </div>
+
+   Compteur de caractères pour la description. Rouge si > 180 caractères.
+   .length retourne le nombre de caractères d'une chaîne.
+
+   <input type="checkbox" :value="user.id" :id="'user_' + user.id"
+          v-model="form.members">
+
+   :id="'user_' + user.id" : crée un ID unique pour chaque checkbox.
+   Nécessaire pour que le <label> avec for= pointe vers la bonne checkbox.
+   v-model="form.members" : tableau qui accumule les IDs cochés.
+
+--- validate() ---
+
+   if (!this.form.name || this.form.name.trim().length < 2)
+
+   ! : négation. !this.form.name = vrai si le nom est vide.
+   .trim() : enlève les espaces en début et fin. "  ab  ".trim() = "ab".
+   .length < 2 : moins de 2 caractères.
+
+   if (this.form.description && this.form.description.length > 200)
+
+   && : ET logique. Vérifie que description existe ET dépasse 200 caractères.
+
+--- submitForm() ---
+
+   fd.append('members', JSON.stringify(this.form.members));
+
+   Envoie la liste des membres sélectionnés en JSON : "[2,5,7]".
+   Le backend décode cette chaîne avec json_decode().
+
+================================================================================
+PARTIE 8 — GROUPES.JS — LA PAGE DES GROUPES
+================================================================================
+
+C'est le composant le plus complexe. Il gère la liste des groupes, leurs détails,
+l'ajout de membres, les soldes, la modification et la suppression.
+
+--- LES DATA ---
+
+   selectedGroup: null
+   → Le groupe dont on affiche le panneau de détail. null = panneau fermé.
+
+   groupExpenses: [], groupTotals: [], groupMembers: []
+   → Données du groupe sélectionné (remplies par selectGroup()).
+
+   allUsers: []
+   → Tous les utilisateurs de l'application (pour le menu "Ajouter un membre").
+
+   newMemberId: '', showAddMember: false
+   → Variables pour le formulaire d'ajout de membre.
+
+   groupBalances: []
+   → Soldes nets par membre (calculés côté PHP avec les participants réels).
+
+   editMode: false, editForm: { name: '', description: '' }
+   → Variables pour le formulaire de modification du groupe.
+
+--- L'ALGORITHME GLOUTON (suggestedDebts) ---
+
+C'est la partie la plus intéressante mathématiquement.
+
+Imagine un groupe de 3 amis : Alice, Bob, Charlie.
+Les soldes calculés par le backend sont :
+- Alice : +15€ (on lui doit 15€)
+- Bob : -10€ (il doit 10€)
+- Charlie : -5€ (il doit 5€)
+
+L'algorithme dit : "comment rembourser avec le moins de transactions possible ?"
+
+   const creditors = [], debtors = [];
+   this.groupBalances.forEach(b => {
+     const net = parseFloat(b.net_balance);
+     if (net > 0.01) creditors.push({ name: b.name, amount: net });
+     else if (net < -0.01) debtors.push({ name: b.name, amount: -net });
+   });
+
+   Sépare les gens en deux groupes :
+   - Créanciers (on leur doit de l'argent, solde positif)
+   - Débiteurs (ils doivent de l'argent, solde négatif)
+
+   parseFloat() : convertit une chaîne "15.00" en nombre 15.0.
+   0.01 et -0.01 : marge de tolérance pour les erreurs d'arrondi.
+   -net : le solde de Bob est -10, on stocke 10 (positif) pour faciliter les calculs.
+
+   let i = 0, j = 0;
+   while (i < debtors.length && j < creditors.length) {
+     const amount = Math.min(debtors[i].amount, creditors[j].amount);
+     settlements.push({
+       from: debtors[i].name,
+       to: creditors[j].name,
+       amount: Math.round(amount * 100) / 100
+     });
+     debtors[i].amount -= amount;
+     creditors[j].amount -= amount;
+     if (debtors[i].amount < 0.01) i++;
+     if (creditors[j].amount < 0.01) j++;
+   }
+
+   Tour 1 : Bob doit 10€, Alice est dûe 15€.
+   Math.min(10, 15) = 10. → Bob paie 10€ à Alice.
+   Bob: 10-10=0 → i++ (Bob est soldé, on passe au débiteur suivant)
+   Alice: 15-10=5 (Alice n'est pas encore remboursée)
+
+   Tour 2 : Charlie doit 5€, Alice est encore dûe 5€.
+   Math.min(5, 5) = 5. → Charlie paie 5€ à Alice.
+   Les deux sont soldés.
+
+   Résultat : 2 transactions seulement au lieu de 3 possibles.
+
+   Math.round(amount * 100) / 100 : arrondi à 2 décimales.
+   * 100 : 15.4567 → 1545.67
+   Math.round() : 1546
+   / 100 : 15.46
+
+--- LE TEMPLATE GROUPES ---
+
+   <div v-for="g in groups" :key="g.id"
+        :class="{ 'group-card-active': selectedGroup && selectedGroup.id === g.id }"
+        @click="selectGroup(g)">
+     <button @click.stop="deleteGroup(g.id)">
+
+   .stop sur @click : empêche la propagation de l'événement. Sans .stop, cliquer
+   sur "Supprimer" déclencherait aussi @click="selectGroup(g)" du div parent
+   (car le clic "remonte" dans l'arbre HTML). .stop stoppe cette remontée.
+
+   :class="{ 'group-card-active': selectedGroup && selectedGroup.id === g.id }" :
+   Active le style "sélectionné" sur la carte du groupe ouvert dans le panneau.
+   selectedGroup && : vérifie d'abord que selectedGroup n'est pas null (sinon
+   accéder à selectedGroup.id planterait).
+
+--- selectGroup(group) ---
+
+   if (this.selectedGroup && this.selectedGroup.id === group.id) {
+     this.selectedGroup = null;
+     return;
+   }
+
+   Si on reclique sur le même groupe : ferme le panneau (toggle).
+   return arrête l'exécution de la fonction ici.
+
+   Les 4 fetch() sont lancés en parallèle (pas attendus l'un après l'autre).
+   C'est plus rapide : tous commencent en même temps.
+
+   if (this.allUsers.length === 0) { fetch get_users... }
+   → Ne recharge allUsers que si pas encore chargé. Optimisation.
+
+--- saveGroup() ---
+
+   this.selectedGroup.name = this.editForm.name.trim();
+   this.selectedGroup.description = this.editForm.description.trim();
+   this.fetchGroups();
+
+   Met à jour l'objet local immédiatement (affichage instantané dans le panneau).
+   Puis recharge la liste (colonne gauche aussi mise à jour).
+
+================================================================================
+PARTIE 9 — EDITEXPENSE.JS — MODIFIER UNE DÉPENSE
+================================================================================
+
+Composant affiché quand on clique sur le crayon d'une dépense.
+
+--- mounted() avec Promise.all ---
+
+   mounted() {
+     const id = this.$parent.editExpenseId;
+     if (!id) {
+       this.$parent.currentPage = 'home';
+       return;
+     }
+     Promise.all([
+       fetch('...get_expense&id=' + id).then(r => r.json()),
+       fetch('...get_groups').then(r => r.json()),
+       fetch('...get_users').then(r => r.json()),
+       fetch('...get_expense_participants&expense_id=' + id).then(r => r.json())
+     ]).then(([expense, groups, users, participants]) => {
+       ...
+     });
+   }
+
+   Promise.all() : lance PLUSIEURS requêtes en parallèle et attend que TOUTES
+   aient répondu. Le résultat est un tableau [rep1, rep2, rep3, rep4].
+   Déstructuration : ([expense, groups, users, participants]) récupère
+   chaque réponse dans une variable séparée.
+
+   C'est plus efficace que d'attendre chaque requête une par une
+   (qui prendrait 4× plus de temps).
+
+   const id = this.$parent.editExpenseId; : lit l'ID stocké dans app.js.
+   if (!id) return; : si pas d'ID, retour immédiat à l'accueil (sécurité).
+
+   parseInt(expense.group_id) : convertit la chaîne "3" en nombre 3.
+   Nécessaire car les valeurs HTML sont des chaînes, mais les <option :value>
+   attendent des nombres pour correspondre.
+
+   participants.map(Number) : convertit chaque ID de chaîne en nombre.
+   [1, 3, 5] (chaînes) → [1, 3, 5] (nombres). Nécessaire pour que v-model
+   checkbox reconnaisse les valeurs sélectionnées.
+
+   Après Promise.all, charge les membres du groupe (fetch séparé car nécessite
+   de connaître group_id d'abord).
+
+--- saveExpense() et deleteExpense() ---
+
+   fd.append('id', this.$parent.editExpenseId);
+
+   Inclut l'ID de la dépense pour que le backend sache QUELLE dépense modifier.
+
+   if (!confirm('Supprimer définitivement cette dépense ?')) return;
+
+   confirm() affiche une boîte de dialogue native du navigateur avec OK/Annuler.
+   Si l'utilisateur clique Annuler → retourne false → on arrête la fonction.
+
+================================================================================
+PARTIE 10 — BACKEND.PHP — LE SERVEUR PHP
+================================================================================
+
+backend.php reçoit toutes les requêtes du frontend et renvoie des données JSON.
+
+--- CONFIGURATION DE SÉCURITÉ ---
+
+   ini_set('session.cookie_httponly', 1);
+
+   Imagine que ton cookie de session est une clé de ta maison. httponly=1 dit :
+   "seul le serveur peut lire cette clé, pas les scripts JavaScript". Ça empêche
+   les pirates de voler la clé avec du code malveillant.
+
+   ini_set('session.cookie_secure', 1);
+   → Le cookie n'est envoyé que sur HTTPS (connexion chiffrée). Sur HTTP, il
+     est ignoré. Comme envoyer une lettre chiffrée : elle n'est lisible que par
+     le destinataire.
+
+   ini_set('session.cookie_samesite', 'Strict');
+   → Empêche les attaques CSRF (Cross-Site Request Forgery).
+     Imaginons un site pirate qui essaie de faire une requête en ton nom vers
+     Fairpay. SameSite=Strict dit "je n'envoie le cookie que si la requête vient
+     DE Fairpay elle-même, jamais d'un autre site".
+
+   ini_set('session.cookie_lifetime', 86400);
+   → 86400 = 24 × 60 × 60 = 86400 secondes = 24 heures. La session expire après.
+
+   session_start();
+   → Démarre ou reprend la session. La session est comme une mémoire côté serveur :
+     elle se souvient de qui est connecté entre les requêtes.
+
+   header("Strict-Transport-Security: max-age=31536000");
+   → HSTS : dit au navigateur "mémorise que ce site utilise HTTPS pendant 1 an".
+     Même si l'utilisateur tape "http://", le navigateur convertit automatiquement en HTTPS.
+
+--- LE ROUTEUR (SWITCH) ---
+
+   $action = $_GET['action'] ?? '';
+
+   $_GET est un tableau PHP qui contient les paramètres dans l'URL.
+   Pour "backend.php?action=login", $_GET['action'] = 'login'.
+   ?? '' : opérateur null-coalescing. Si 'action' n'existe pas dans $_GET,
+   utilise '' (chaîne vide) comme valeur par défaut.
+
+   switch ($action) {
+     case 'login': ...
+     case 'register': ...
+   }
+
+   Comme un carrefour : selon la valeur de $action, PHP exécute le bon bloc.
+
+--- FLUX 1 : INSCRIPTION (register) ---
+
+   $donnees = json_decode(file_get_contents("php://input"), true);
+
+   file_get_contents("php://input") : lit les données brutes envoyées dans le
+   corps de la requête POST (le JSON du frontend).
+   json_decode(..., true) : convertit le JSON en tableau PHP associatif.
+   Le paramètre true signifie "retourne un tableau" (pas un objet).
+
+   $nom = trim($donnees['username']);
+   $email = strtolower(trim($donnees['email']));
+
+   trim() : enlève les espaces en début et fin.
+   strtolower() : convertit en minuscules. "Alice@TEST.FR" → "alice@test.fr".
+   Ainsi "Alice@test.fr" et "alice@test.fr" sont reconnus comme le même email.
+
+   $stmt = $connexion->prepare('SELECT id FROM users WHERE email = ? OR name = ? LIMIT 1');
+   $stmt->execute([$email, $nom]);
+   $utilisateurExistant = $stmt->fetch(PDO::FETCH_ASSOC);
+
+   REQUÊTES PRÉPARÉES EXPLIQUÉES :
+   - prepare() : prépare la requête SQL avec des ? à la place des vraies valeurs.
+   - execute([$email, $nom]) : PHP remplace les ? par les valeurs de façon SÉCURISÉE.
+
+   Pourquoi sécurisé ? Sans requêtes préparées, un pirate pourrait écrire comme
+   email : "' OR 1=1; DROP TABLE users; --" et la requête deviendrait :
+   SELECT * FROM users WHERE email = '' OR 1=1; DROP TABLE users; --
+   Ce qui effacerait toute la table ! Avec prepare(), les ? sont traités comme
+   des données pures, jamais comme du code SQL.
+
+   PDO::FETCH_ASSOC : retourne les résultats sous forme de tableau associatif.
+   Ex: ['id' => 5, 'name' => 'Alice'] au lieu de [0 => 5, 1 => 'Alice'].
+
+   if ($utilisateurExistant) {
+     http_response_code(409);
+     echo json_encode(['success' => false, 'message' => 'Ce nom ou cet email existe déjà.']);
+   }
+
+   http_response_code(409) : envoie le code HTTP 409 "Conflict" au navigateur.
+   Les codes HTTP : 200=OK, 400=Mauvaise requête, 401=Non autorisé,
+   404=Introuvable, 409=Conflit, 500=Erreur serveur.
+   echo json_encode() : convertit le tableau PHP en JSON et l'envoie au client.
+
+   $motDePasseHache = password_hash($motDePasse, PASSWORD_DEFAULT);
+
+   HACHAGE DU MOT DE PASSE :
+   password_hash() transforme "abc123" en quelque chose comme :
+   "$2y$10$xyz...abcdef" (une longue chaîne incompréhensible).
+
+   Ce processus est IRRÉVERSIBLE. On ne peut pas retrouver "abc123" à partir
+   du hash. C'est fait exprès : même si un pirate vole la base de données,
+   il ne peut pas connaître les vrais mots de passe.
+
+   PASSWORD_DEFAULT : utilise l'algorithme bcrypt (le plus sûr disponible).
+
+--- FLUX 2 : CONNEXION (login) ---
+
+   if (!$infosUtilisateur || !password_verify($mdp, $infosUtilisateur['password'])) {
+     sleep(1);
+     http_response_code(401);
+     echo json_encode(['message' => 'Identifiants Fairpay incorrects.']);
+   }
+
+   password_verify($mdp, $hash) : vérifie si le mot de passe tapé correspond
+   au hash stocké. Retourne true ou false.
+
+   sleep(1) : fait attendre 1 seconde avant de répondre.
+   Pourquoi ? Pour ralentir les attaques "force brute" où un robot essaie
+   des milliers de mots de passe par seconde. Avec 1 seconde d'attente,
+   le robot ne peut essayer que 1 mot de passe par seconde.
+
+   $_SESSION['utilisateur'] = ['id' => ..., 'pseudo' => ..., 'nom' => ..., 'heure' => ...]
+
+   Stocke les infos dans la session PHP. C'est une mémoire côté serveur liée
+   à l'utilisateur via son cookie. Dure jusqu'à 24 heures.
+
+--- FLUX 9 : TABLEAU DE BORD (get_dashboard) ---
+
+   $requeteGroupes = $connexion->prepare("SELECT group_id FROM participations WHERE user_id = ?");
+
+   Récupère tous les groupes dont l'utilisateur est membre (via la table participations).
+
+   array_column($result, 'group_id') : extrait toutes les valeurs de la colonne
+   'group_id' dans un tableau. Ex: [['group_id'=>1], ['group_id'=>3]] → [1, 3].
+
+   CALCUL DES SOLDES :
+   Pour chaque groupe, pour chaque dépense :
+
+   $idsParticipants = $participantsParDepense[$idExp] ?? $idsMembres;
+
+   ?? : si les participants de cette dépense existent dans le tableau, on les utilise.
+   Sinon (pas de participants enregistrés), on utilise TOUS les membres du groupe.
+   C'est le "fallback" (comportement par défaut).
+
+   $partChacun = (float) $depense['amount'] / $nbParticipants;
+
+   Division du montant par le nombre de participants.
+   (float) : forçage de type en nombre flottant (décimal).
+
+   SI J'AI PAYÉ :
+   if ($idPayeur === $idUtilisateur) {
+     $nbDebiteurs = in_array($idUtilisateur, $idsParticipants)
+       ? $nbParticipants - 1 : $nbParticipants;
+     $on_me_doit += $partChacun * $nbDebiteurs;
+   }
+
+   in_array() : vérifie si une valeur est dans un tableau.
+   Si je suis dans la liste des participants et que j'ai payé : les AUTRES
+   me doivent leur part → nbDebiteurs = nbParticipants - 1 (je ne me dois pas à moi-même).
+
+   SI JE SUIS PARTICIPANT MAIS N'AI PAS PAYÉ :
+   elseif (in_array($idUtilisateur, $idsParticipants)) {
+     $je_dois += $partChacun;
+   }
+
+   Je dois ma part du montant au payeur.
+
+   COALESCE(SUM(amount), 0) :
+   COALESCE retourne le premier argument non-NULL. Si SUM retourne NULL
+   (aucune dépense ce mois), COALESCE retourne 0 au lieu de NULL.
+
+--- FLUX 16 : SOLDES AVEC PARTICIPANTS (get_group_balances) ---
+
+   foreach ($idsParticipants as $idMembre) {
+     if ($idMembre === $idPayeur) {
+       $soldes[$idMembre]['net'] += $partChacun * ($nbParticipants - 1);
+     } else {
+       $soldes[$idMembre]['net'] -= $partChacun;
+     }
+   }
+
+   Pour chaque dépense, on ajuste le solde net de chaque participant.
+   Le payeur : récupère la part × (nombre de participants - 1).
+   Ex: Dépense de 30€ entre 3 personnes. Part = 10€.
+   Le payeur récupère 10€ × 2 = 20€ (les deux autres lui doivent leur part).
+   Chaque non-payeur perd 10€ (il doit sa part).
+   Net du payeur : +20€. Net de chaque autre : -10€. Total : +20-10-10 = 0. Cohérent !
+
+--- FLUX 6 : SUPPRIMER UN GROUPE ---
+
+   $requete1 = $connexion->prepare("DELETE FROM settlements WHERE group_id = ?");
+   $requete2 = $connexion->prepare("DELETE FROM expenses WHERE group_id = ?");
+   $requete3 = $connexion->prepare("DELETE FROM participations WHERE group_id = ?");
+   $requete4 = $connexion->prepare("DELETE FROM `groups` WHERE id = ?");
+
+   ON NE PEUT PAS supprimer le groupe directement car les autres tables
+   y font référence (clés étrangères). Il faut d'abord supprimer tout ce qui
+   dépend du groupe, dans le bon ordre.
+
+   L'ordre est : données les plus dépendantes → données les moins dépendantes.
+   Comme vider un appartement avant de le détruire.
+
+================================================================================
+PARTIE 11 — DB_ACCESS.PHP — LA CONNEXION À LA BASE DE DONNÉES
+================================================================================
+
+   define('USER', 'ar62yy13raif');
+   define('PASSWD', 'a0~p6a?2pa');
+   define('BASE', 'ebus2_projet03_aarr19');
+   define('SERVER', 'localhost');
+
+   define() crée des CONSTANTES. Contrairement aux variables ($), elles ne
+   peuvent pas changer pendant l'exécution du script.
+
+   $dsn = 'mysql:host=' . SERVER . ';dbname=' . BASE . ';charset=utf8mb4';
+
+   DSN = Data Source Name. C'est l'adresse de la base de données.
+   charset=utf8mb4 : supporte tous les caractères (accents, emojis...).
+   utf8mb4 est plus complet qu'utf8 (supporte les emojis 4 octets).
+
+   $connexion = new PDO($dsn, USER, PASSWD);
+
+   Crée une nouvelle instance PDO = ouvre la connexion à la base de données.
+   Si ça échoue (mauvais mot de passe, serveur inaccessible...), PDO lance
+   une exception (PDOException) attrapée par le catch.
+
+   $connexion->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+   Configure PDO pour qu'il lance des exceptions en cas d'erreur SQL.
+   Sans ça, les erreurs passeraient silencieusement et il serait difficile
+   de déboguer.
+
+================================================================================
+PARTIE 12 — CORS-API.PHP — LE GARDIEN DE SÉCURITÉ
+================================================================================
+
+CORS signifie Cross-Origin Resource Sharing. C'est un mécanisme de sécurité
+des navigateurs.
+
+Imaginons : le site A (une page pirate sur pirate.com) essaie d'appeler l'API
+de Fairpay. Le navigateur bloque ça automatiquement (politique same-origin).
+Mais si Fairpay a besoin d'être appelé depuis son propre domaine ET depuis
+localhost (en développement), on doit explicitement l'autoriser.
+
+   $possibleOrigins = [$host];
+
+   Au départ, seul l'hôte Fairpay lui-même est autorisé.
+
+   if ($dev) {
+     $possibleOrigins[] = 'http://localhost:5173';  // Vue/Vite
+     $possibleOrigins[] = 'http://localhost:5174';
+     $possibleOrigins[] = 'http://localhost:63342'; // PhpStorm
+     $possibleOrigins[] = 'http://localhost:3000';  // React/Node
+     $possibleOrigins[] = 'null';                   // file://
+   }
+
+   En mode développement, on ajoute tous les ports locaux utilisés par les
+   outils de développement.
+
+   header('Access-Control-Allow-Origin: ' . $origin);
+   → Dit au navigateur : "oui, ce domaine a le droit de lire ma réponse".
+
+   header('Access-Control-Allow-Methods: POST, PUT, GET, DELETE, OPTIONS');
+   → Actions autorisées.
+
+   header('Access-Control-Allow-Credentials: true');
+   → Permet l'envoi des cookies de session avec les requêtes cross-origin.
+
+   header('Cache-Control: no-store, no-cache, ...');
+   → Empêche le navigateur de mettre en cache les réponses de l'API.
+     Sinon, sur un ordinateur partagé, quelqu'un pourrait voir tes données
+     dans le cache même après déconnexion.
+
+   header('X-Content-Type-Options: nosniff');
+   → Empêche le navigateur de deviner le type d'un fichier. Si le serveur
+     dit "c'est du JSON", le navigateur doit le traiter comme du JSON,
+     pas essayer de l'exécuter comme du JavaScript.
+
+   header('X-Frame-Options: DENY');
+   → Empêche d'afficher Fairpay dans une <iframe>. Protège contre le
+     clickjacking (un site pirate superpose une iframe invisible de Fairpay
+     pour que tu cliques sans le savoir).
+
+   header('X-XSS-Protection: 1; mode=block');
+   → Active le filtre anti-XSS (Cross-Site Scripting) des anciens navigateurs.
+
+================================================================================
+PARTIE 13 — .HTACCESS — LES RÈGLES APACHE
+================================================================================
+
+.htaccess est un fichier de configuration pour le serveur web Apache.
+Il est lu automatiquement à chaque requête.
+
+   Header always set Content-Security-Policy: "default-src 'self' 'unsafe-inline'
+   'unsafe-eval' https://cdn.jsdelivr.net; ..."
+
+   CSP = Content Security Policy. C'est une liste blanche de sources autorisées.
+
+   default-src 'self' : par défaut, seule la même origine est autorisée.
+   'unsafe-inline' : autorise les styles/scripts inline (dans les balises HTML).
+   'unsafe-eval' : autorise eval() dans JavaScript (nécessaire pour Vue.js CDN).
+   https://cdn.jsdelivr.net : autorise le chargement depuis ce CDN (Bootstrap, Vue).
+
+   Ça empêche un script malveillant d'appeler des ressources externes non autorisées.
+
+   Strict-Transport-Security: "max-age=31536000; includeSubDomains"
+   → HSTS au niveau serveur (en plus de celui dans backend.php).
+     includeSubDomains : s'applique aussi aux sous-domaines (www.fairpay.com, etc.).
+
+   X-Content-Type-Options: "nosniff"
+   → Même protection que dans cors-api.php, mais au niveau serveur.
+
+================================================================================
+PARTIE 14 — STYLE.CSS — LE MAQUILLAGE DE L'APPLICATION
+================================================================================
+
+--- LES VARIABLES CSS (:root) ---
+
+   :root { --gradient-main: linear-gradient(...); --primary: #fa69b9; ... }
+
+   :root est le sélecteur CSS qui représente l'élément racine (= <html>).
+   Les variables CSS commencent par --. On peut les utiliser partout :
+   color: var(--primary); → remplace --primary par #fa69b9.
+
+   Avantage : changer la couleur principale en 1 seul endroit change tout le site.
+
+   --gradient-main: linear-gradient(135deg, #ff588e 0%, #fa69b9 25%, ...)
+   → Dégradé linéaire à 135° (diagonal), du rose (#ff588e) au jaune (#fedd92)
+     en passant par plusieurs teintes roses/pêche. C'est le thème "Sunset Energy".
+
+--- [v-cloak] { display: none } ---
+
+   Cache les éléments avec l-attribut v-cloak tant que Vue.js charge.
+   Évite d'afficher {{ currentUser }} brut avant que Vue.js initialise.
+
+--- .app-layout ---
+
+   @media (min-width: 992px) {
+     .app-layout { display: flex; min-height: 100vh; }
+     .content-area { margin-left: 240px; flex: 1; }
+   }
+
+   @media : règle CSS conditionnelle. S'applique uniquement si l'écran fait
+   au moins 992px de large.
+
+   display: flex : active Flexbox, le système de mise en page moderne.
+   Permet d'aligner sidebar + contenu côte à côte facilement.
+
+   margin-left: 240px : décale le contenu de la largeur de la sidebar (240px).
+   flex: 1 : le contenu prend tout l'espace disponible restant.
+   100vh : 100% de la hauteur de la fenêtre (vh = viewport height).
+
+--- .btn-primary-custom ---
+
+   .btn-primary-custom {
+     background: var(--gradient-main);
+     color: white;
+     ...
+   }
+   .btn-primary-custom:hover {
+     background: var(--gradient-hover);
+     transform: translateY(-2px);
+   }
+
+   Les boutons principaux utilisent le dégradé Fairpay.
+   :hover s'applique quand la souris passe dessus.
+   transform: translateY(-2px) : déplace le bouton de 2px vers le haut
+   au survol (effet "soulevé").
+
+================================================================================
+PARTIE 15 — LA BASE DE DONNÉES
+================================================================================
+
+La base de données contient 6 tables. Voici leur structure et leur rôle :
+
+TABLE users :
+   id          → Identifiant unique auto-incrémenté (1, 2, 3...)
+   name        → Nom d'utilisateur (unique)
+   email       → Email (unique, stocké en minuscules)
+   password    → Hash bcrypt du mot de passe (JAMAIS le vrai mot de passe)
+
+TABLE groups :
+   id          → Identifiant unique
+   name        → Nom du groupe
+   description → Description (optionnelle)
+   created_by  → ID de l'utilisateur créateur (clé étrangère vers users.id)
+   created_at  → Date/heure de création (automatique)
+
+TABLE participations :
+   user_id     → ID de l'utilisateur membre
+   group_id    → ID du groupe
+   (UNIQUE sur (user_id, group_id) → un membre ne peut être qu'une fois par groupe)
+
+   C'est la table de liaison entre users et groups. Elle dit "qui est dans quel groupe".
+
+TABLE expenses :
+   id           → Identifiant unique
+   group_id     → Groupe de la dépense
+   payer_id     → Qui a payé (clé étrangère vers users.id)
+   amount       → Montant (DECIMAL)
+   expense_date → Date de la dépense
+   reason       → Motif de la dépense
+
+TABLE expense_participants :
+   expense_id  → Dépense concernée
+   user_id     → Participant concerné
+   (UNIQUE sur (expense_id, user_id) → un participant une seule fois par dépense)
+
+   Si une dépense n'a pas de lignes ici, on considère que TOUS les membres
+   du groupe participent (comportement par défaut = fallback).
+
+TABLE settlements :
+   id              → Identifiant unique
+   group_id        → Groupe du remboursement
+   sender_id       → Qui a remboursé
+   receiver_id     → Qui a reçu le remboursement
+   amount          → Montant remboursé
+   settlement_date → Date du remboursement
+
+--- EXEMPLE CONCRET ---
+
+Groupe "Vacances 2026" : Alice (id:1), Bob (id:2), Charlie (id:3).
+
+groups: { id:1, name:"Vacances 2026", created_by:1 }
+
+participations: { user_id:1, group_id:1 }
+               { user_id:2, group_id:1 }
+               { user_id:3, group_id:1 }
+
+Alice paie 60€ de courses, tous participent :
+expenses: { id:10, group_id:1, payer_id:1, amount:60, reason:"Courses" }
+(Pas de lignes dans expense_participants → tous participent par défaut)
+
+Bob paie 30€ de restaurant, seulement lui et Charlie :
+expenses: { id:11, group_id:1, payer_id:2, amount:30, reason:"Restaurant" }
+expense_participants: { expense_id:11, user_id:2 }
+                      { expense_id:11, user_id:3 }
+
+Calcul soldes :
+- Dépense 10 (60€, 3 participants) : part = 20€ chacun.
+  Alice (payeur) : +20+20 = +40€ (Bob et Charlie lui doivent 20€ chacun)
+  Bob : -20€ (doit 20€ à Alice)
+  Charlie : -20€ (doit 20€ à Alice)
+
+- Dépense 11 (30€, 2 participants : Bob et Charlie) : part = 15€ chacun.
+  Bob (payeur) : +15€ (Charlie lui doit 15€)
+  Charlie : -15€ (doit 15€ à Bob)
+
+Soldes nets :
+  Alice : +40€
+  Bob : -20 + 15 = -5€
+  Charlie : -20 - 15 = -35€
+
+Algorithme glouton :
+  Créanciers : Alice +40€
+  Débiteurs : Bob 5€, Charlie 35€
+  → Bob paie 5€ à Alice (Bob = 0, Alice = 35€ restants)
+  → Charlie paie 35€ à Alice (tous soldés)
+  2 transactions suffisent.
+
+================================================================================
+PARTIE 16 — LES 18 FLUX EN LANGAGE SIMPLE
+================================================================================
+
+Un "flux" est le chemin complet d'une action : du clic de l'utilisateur
+jusqu'à la réponse affichée.
+
+FLUX 1 — INSCRIPTION :
+   Utilisateur remplit le formulaire → app.js register() → POST vers backend.php
+   → PHP vérifie l'unicité email/pseudo → hash du mot de passe → INSERT dans users
+   → PHP répond { success: true } → app.js affiche le formulaire de connexion + toast
+
+FLUX 2 — CONNEXION :
+   Utilisateur entre email/mot de passe → app.js login() → POST vers backend.php
+   → PHP cherche l'utilisateur par email → password_verify() compare les mots de passe
+   → PHP crée la session et répond { connexion: true, user: {...} }
+   → app.js met currentUser = data.user → Vue.js affiche l'application
+
+FLUX 3 — CHARGER GROUPES ET UTILISATEURS :
+   Chaque formulaire qui nécessite la liste des groupes (Nouveau.js, Groupes.js)
+   ou des utilisateurs envoie un GET au backend → backend répond un tableau JSON
+   → Vue.js peuple les menus déroulants
+
+FLUX 4 — CRÉER UN GROUPE :
+   NouveauGroupe.js → validate() → POST add_group avec nom+description+membres JSON
+   → PHP INSERT INTO groups → INSERT INTO participations pour le créateur + membres
+   → toast "Groupe créé" + retour page Groupes
+
+FLUX 5 — AJOUTER UNE DÉPENSE :
+   Nouveau.js → validate() → POST add_depense avec tous les champs + participants JSON
+   → PHP INSERT INTO expenses → INSERT INTO expense_participants
+   → toast + retour Dashboard
+
+FLUX 6 — SUPPRIMER UN GROUPE :
+   Groupes.js → confirm() → POST delete_group avec l'ID
+   → PHP supprime en cascade : settlements → expenses → participations → groups
+   → toast + liste rechargée
+
+FLUX 7 — DÉCONNEXION :
+   Clic "Déconnexion" → currentUser = null → Vue.js bascule vers l'écran de connexion
+   (simple, pas d'appel au backend, la session PHP reste active côté serveur)
+
+FLUX 8 — NAVIGATION :
+   Clic dans la sidebar/barre du bas → goTo('page') → currentPage change
+   → Vue.js affiche le composant correspondant via v-if
+
+FLUX 9 — TABLEAU DE BORD :
+   Accueil.js mounted() → fetchDashboard() → GET get_dashboard
+   → PHP exécute 4 requêtes SQL (groupes, dépenses, calcul soldes, total mensuel)
+   → Vue.js affiche tout le tableau de bord
+
+FLUX 10 — CALENDRIER MENSUEL :
+   Clic flèche calendrier → prevMonth()/nextMonth() → watch détecte le changement
+   → fetchMonthBalance() → GET avec year= et month=
+   → PHP recalcule les soldes filtrés + dates des dépenses → calendrier mis à jour
+
+FLUX 11 — DÉTAILS D'UN GROUPE :
+   Clic sur une carte groupe → selectGroup(group) → 4 GET en parallèle
+   (dépenses nommées, totaux par membre, liste membres, soldes nets)
+   → panneau de détail s'affiche avec toutes les infos
+
+FLUX 12 — AJOUTER UN MEMBRE :
+   Clic "Ajouter un membre" → sélection → clic "Ajouter"
+   → POST add_member avec user_id + group_id
+   → PHP INSERT IGNORE INTO participations → membres et soldes rechargés
+
+FLUX 13 — ENREGISTRER UN REMBOURSEMENT :
+   POST add_settlement avec sender_id + receiver_id + amount
+   → PHP INSERT INTO settlements → confirmation
+
+FLUX 14 — MODIFIER UNE DÉPENSE :
+   Clic crayon → editExpense(id) → app.js stocke editExpenseId → page editExpense
+   → EditExpense.js mounted() → Promise.all (4 GET simultanés)
+   → formulaire pré-rempli → modifications → saveExpense() → POST update_expense
+   → PHP UPDATE expenses + recrée expense_participants → toast + retour home
+
+FLUX 15 — SUPPRIMER UNE DÉPENSE :
+   Dans EditExpense.js → confirm() → POST delete_expense
+   → PHP DELETE FROM expenses → toast + retour home
+
+FLUX 16 — PARTICIPANTS PERSONNALISÉS :
+   Quand un groupe est sélectionné → cases à cocher des membres apparaissent
+   On peut décocher certains membres → selectedParticipants stocke les cochés
+   L'envoi inclut les IDs des participants → backend calcule les soldes
+   en fonction des participants réels (pas juste en parts égales)
+
+FLUX 17 — MODIFIER UN GROUPE :
+   Clic "Modifier" → editMode = true → formulaire pré-rempli visible
+   → modifications → saveGroup() → POST update_group
+   → PHP UPDATE groups → nom/description mis à jour localement + liste rechargée
+
+FLUX 18 — QUITTER UN GROUPE :
+   Clic "Quitter" → confirm() → POST leave_group
+   → PHP DELETE FROM participations WHERE user_id = moi AND group_id = groupe
+   → panneau fermé + liste rechargée (le groupe n'apparaît plus)
+
+================================================================================
+PARTIE 17 — LES CONCEPTS CLÉS RÉSUMÉS
+================================================================================
+
+--- VUE.JS : RÉACTIVITÉ ---
+
+Vue.js suit le principe de la réactivité : quand une donnée change, l'interface
+se met à jour automatiquement. C'est comme une feuille de calcul Excel :
+changer une cellule met à jour toutes les formules qui l'utilisent.
+
+Quand on écrit :
+   this.currentPage = 'groupes';
+Vue.js cherche PARTOUT dans le template les endroits qui utilisent currentPage
+et met à jour uniquement ceux-là (sans recharger toute la page).
+
+--- ASYNC/AWAIT ---
+
+JavaScript est "single-threaded" : il ne peut faire qu'une chose à la fois.
+Mais les opérations réseau (fetch) peuvent prendre du temps.
+
+Sans async/await : le code se bloquerait en attendant la réponse du serveur.
+Avec async/await : le code dit "je mets pause ici, fais autre chose pendant
+que j'attends, reprends quand la réponse arrive". L'utilisateur peut continuer
+à interagir avec le site.
+
+--- PDO ET SÉCURITÉ SQL ---
+
+Sans PDO (dangereux) :
+   "SELECT * FROM users WHERE email = '" + $_POST['email'] + "'"
+
+Si email = "x' OR 1=1 --", la requête devient :
+   SELECT * FROM users WHERE email = 'x' OR 1=1 --'
+   → retourne TOUS les utilisateurs (1=1 est toujours vrai). Catastrophe !
+
+Avec PDO (sécurisé) :
+   $stmt = $connexion->prepare("SELECT * FROM users WHERE email = ?");
+   $stmt->execute([$email]);
+
+PDO traite ? comme une valeur pure, jamais comme du code SQL.
+"x' OR 1=1 --" sera cherché tel quel comme email (aucun utilisateur trouvé).
+
+--- LES HEADERS HTTP ---
+
+Quand le navigateur et le serveur communiquent, ils échangent :
+1. La "requête" : l'action demandée + des "headers" (métadonnées)
+2. La "réponse" : les données + des "headers" (métadonnées)
+
+Les headers sont comme l'enveloppe d'une lettre : ils contiennent des
+informations sur la lettre elle-même (destinataire, priorité, type...).
+
+header('Content-Type: application/json') → dit "le contenu est du JSON".
+http_response_code(200) → dit "tout s'est bien passé".
+http_response_code(401) → dit "tu n'es pas autorisé".
+
+================================================================================
+PARTIE 18 — GLOSSAIRE (DICTIONNAIRE DES MOTS TECHNIQUES)
+================================================================================
+
+API : Application Programming Interface. Un service que l'on peut interroger
+      pour obtenir ou envoyer des données. backend.php est l'API de Fairpay.
+
+Array : Tableau en programmation. Contient plusieurs valeurs.
+        Ex: [1, 3, 5] ou ["Alice", "Bob", "Charlie"].
+
+Async/Await : Mécanisme JavaScript pour gérer les opérations qui prennent du temps
+              (réseau, fichiers...) sans bloquer le reste du code.
+
+Backend : La partie "cachée" d'une application : serveur, base de données, logique.
+
+Bootstrap : Framework CSS qui fournit des composants visuels prêts à l'emploi.
+
+CDN : Content Delivery Network. Serveur mondial pour distribuer des fichiers
+      (CSS, JS). Chargement rapide car serveur géographiquement proche.
+
+Composant : En Vue.js, un bloc réutilisable qui a ses propres données, logique
+            et affichage. Comme une pièce de Lego.
+
+Cookie : Petit fichier stocké dans le navigateur. Ici utilisé pour la session.
+
+CORS : Cross-Origin Resource Sharing. Mécanisme de sécurité qui contrôle
+       quels sites peuvent appeler une API.
+
+CSP : Content Security Policy. Liste blanche des ressources autorisées.
+
+CSS : Cascade Style Sheets. Le langage pour styliser les pages web.
+
+Fetch : Fonction JavaScript pour envoyer des requêtes HTTP vers un serveur.
+
+Flexbox : Système de mise en page CSS. Permet d'aligner facilement des éléments.
+
+FormData : Objet JavaScript pour envoyer des données de formulaire via fetch.
+
+Frontend : La partie visible d'une application (navigateur).
+
+Hash/Hachage : Transformation irréversible d'un texte en chaîne incompréhensible.
+               Utilisé pour les mots de passe.
+
+HTML : HyperText Markup Language. Le squelette d'une page web.
+
+HTTPS : HTTP Sécurisé. La connexion est chiffrée (impossible à espionner).
+
+JSON : JavaScript Object Notation. Format de données texte.
+       Ex: {"nom":"Alice","age":25}
+
+Null : Absence de valeur. En PHP et JavaScript, null signifie "rien".
+
+PDO : PHP Data Objects. Façon sécurisée de communiquer avec une base de données.
+
+PHP : Hypertext Preprocessor. Langage de programmation pour les serveurs web.
+
+Promise.all : Lance plusieurs opérations asynchrones en parallèle.
+
+Props : "Propriétés". Paramètres passés d'un composant Vue.js parent à un enfant.
+
+Requête préparée : Requête SQL avec des ? à la place des valeurs pour éviter
+                   les injections SQL.
+
+Session : Mémoire côté serveur qui retient qui est connecté entre les requêtes.
+
+SQL : Structured Query Language. Langage pour parler aux bases de données.
+
+v-if : Directive Vue.js pour afficher/cacher un élément selon une condition.
+
+v-for : Directive Vue.js pour répéter un élément pour chaque item d'un tableau.
+
+v-model : Directive Vue.js pour la liaison bidirectionnelle entre input et variable.
+
+Vue.js : Framework JavaScript réactif pour construire des interfaces dynamiques.
+
+Watch : En Vue.js, surveille une variable et exécute du code quand elle change.
+
+XSS : Cross-Site Scripting. Attaque où du JavaScript malveillant est injecté.
+      htmlspecialchars() en PHP convertit < > en &lt; &gt; pour empêcher ça.
+
+================================================================================
+FIN DU DOCUMENT
+================================================================================
+Ce document contient l'explication complète de tous les fichiers du projet Fairpay.
+Tous les concepts ont été expliqués simplement, toutes les lignes importantes
+ont été décortiquées.
+
+Fichiers couverts :
+  - index.html (301 lignes)
+  - app.js (194 lignes)
+  - components/Accueil.js (477 lignes)
+  - components/Nouveau.js (278 lignes)
+  - components/NouveauGroupe.js (162 lignes)
+  - components/Groupes.js (508 lignes)
+  - components/EditExpense.js (328 lignes)
+  - api/backend.php (1102 lignes)
+  - api/cors-api.php (98 lignes)
+  - api/config/db_access.php (29 lignes)
+  - style.css (912 lignes)
+  - .htaccess (12 lignes)
+
+Total du projet : environ 4401 lignes de code expliquées.
+================================================================================
