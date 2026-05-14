@@ -29,14 +29,6 @@
    17.  Flux 18  .......  leave_group       — Quitter un groupe (supprime la participation)
    18.  Default  .......  Action inconnue → 400
 
-   TABLE SQL REQUISE (à créer si elle n'existe pas) :
-   CREATE TABLE IF NOT EXISTS expense_participants (
-     expense_id INT NOT NULL,
-     user_id    INT NOT NULL,
-     PRIMARY KEY (expense_id, user_id),
-     FOREIGN KEY (expense_id) REFERENCES expenses(id) ON DELETE CASCADE,
-     FOREIGN KEY (user_id)    REFERENCES users(id)    ON DELETE CASCADE
-   );
    ──────────────────────────────────────────────────────────────────────
 ========================================================================= */
 
@@ -73,8 +65,8 @@ if (!empty($_SERVER['HTTPS'])) { // vérifie si la connexion actuelle est en HTT
 // require_once est utilisé pour les fichiers essentiels car il arrête le script en cas d'erreur
 require_once 'cors-api.php'; // charge le fichier cors
 // On appelle la fonction de configuration CORS du prof (dev mode à true, refuse les autres origines par défaut, pas de debug)
-$host = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'localhost');
-add_headers_origin($host, true, false, false); // autorise cette origine précise, avec des options de sécurité activées selon les paramètres passés
+$hote = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'localhost');
+add_headers_origin($hote, true, false, false); // autorise cette origine précise, avec des options de sécurité activées selon les paramètres passés
 
 // Si c'est juste une requête OPTIONS (Preflight CORS), on répond 200 et on s'arrête
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { // Qu'est-ce que j'ai le droit de faire ici ?
@@ -93,26 +85,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { // Qu'est-ce que j'ai le droit d
 */
 include_once 'config/db_access.php'; // include_once permet de continuer l'exécution même si le fichier est absent.
 
-/* =========================================================================
-   AUCUN FLUX — CRÉATION AUTOMATIQUE DE LA TABLE expense_participants (Flux 16)
-   =========================================================================
-   On crée la table IF NOT EXISTS à chaque appel : si elle existe déjà, MySQL
-   ignore silencieusement la commande (aucun coût). Cela évite d'avoir à passer
-   par phpMyAdmin pour l'examen et garantit que la fonctionnalité "participants"
-   est toujours disponible dès la première requête.
-   - expense_id : référence la dépense concernée (supprimée en cascade)
-   - user_id    : référence le membre participant (supprimé en cascade)
-   - PRIMARY KEY composite : empêche les doublons (même personne deux fois)
-*/
-$connexion->exec("
-    CREATE TABLE IF NOT EXISTS expense_participants (
-        expense_id INT NOT NULL,
-        user_id    INT NOT NULL,
-        PRIMARY KEY (expense_id, user_id),
-        FOREIGN KEY (expense_id) REFERENCES expenses(id) ON DELETE CASCADE,
-        FOREIGN KEY (user_id)    REFERENCES users(id)    ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-");
 
 /* =========================================================================
    AUCUN FLUX — ROUTEUR (AIGUILLAGE DES ACTIONS)
@@ -136,7 +108,6 @@ if ($action === '' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
-
 /* =========================================================================
    ROUTEUR — Le "switch" fonctionne comme un grand carrefour.
    Selon la valeur de $action, le code va dans la section ("case") correspondante.
@@ -151,7 +122,7 @@ switch ($action) {
        ========================================================================= */
     case 'register': // Si l'action demandée est register (inscription), exécute ce bloc de code
         // On utilise json_encode pour envoyer une réponse structurée en JSON au frontend, car JavaScript attend ce format pour pouvoir traiter les messages correctement.
-        header('Content-Type: application/json'); 
+        header('Content-Type: application/json');
 
         // 1. Vérification que c'est bien une requête POST
         //Post c'est pour envoyer des données au serveur
@@ -171,33 +142,33 @@ switch ($action) {
         }
 
         // 3. Nettoyage des données (on met l'email en minuscules, on enlève les espaces)
-        $name = trim($donnees['username']);
-        $email = strtolower(trim($donnees['email']));
-        $password = $donnees['password'];
+        $nom      = trim($donnees['username']);
+        $email    = strtolower(trim($donnees['email']));
+        $motDePasse = $donnees['password'];
 
         // 4. Vérification si l'email ou le nom existent déjà dans la base
-        // $stmt : C’est une variable qui contient une requête SQL préparée, mais pas encore exécutée.
+        // $stmt : C'est une variable qui contient une requête SQL préparée, mais pas encore exécutée.
 
-        $stmt = $connexion->prepare('SELECT id FROM users WHERE email = ? OR name = ?');
-        $stmt->execute([$email, $name]); // Exécute la requête avec l'email fourni
-        $existingUser = $stmt->fetch(PDO::FETCH_ASSOC);
+        $stmt = $connexion->prepare('SELECT id FROM users WHERE email = ? OR name = ? LIMIT 1');
+        $stmt->execute([$email, $nom]); // Exécute la requête avec l'email fourni
+        $utilisateurExistant = $stmt->fetch(PDO::FETCH_ASSOC);
         // PDO = Méthode PHP  pour communiquer avec une base de données de manière sécurisée.
         // Elle évie lesw injections SQL et fonctionne avec plusieurs types de bases
 
         //=> prepare - execute - fetch (cycle complet) : 1. ecrire la requete 2. injecter la valeur 3. récupérer le resultat
 
-        if ($existingUser) {
+        if ($utilisateurExistant) {
             http_response_code(409); // 409 = Conflict (Conflit de données)
             echo json_encode(['success' => false, 'message' => 'Ce nom ou cet email existe déjà.']);
             exit;
         }
 
         // 5. Cryptage (hachage) du mot de passe pour la sécurité (très important !)
-        $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+        $motDePasseHache = password_hash($motDePasse, PASSWORD_DEFAULT);
 
         // 6. Insertion du nouvel utilisateur dans la base de données
         $stmt = $connexion->prepare('INSERT INTO users (name, email, password) VALUES (?, ?, ?)');
-        $stmt->execute([$name, $email, $hashedPassword]);
+        $stmt->execute([$nom, $email, $motDePasseHache]);
 
         // 7. Renvoi d'un message de succès
         echo json_encode(['success' => true, 'message' => 'Inscription réussie']);
@@ -228,12 +199,12 @@ switch ($action) {
 
         // 3. Nettoyage des données (on met l'email en minuscules, on enlève les espaces)
         $email = strtolower(trim($donnees['email']));
-        $mdp = $donnees['password'];
+        $mdp   = $donnees['password'];
 
         // 4. Recherche de l'utilisateur dans la base de données
 
         // $stmt : C'est une variable qui contient une requête SQL préparée, mais pas encore exécutée.
-        $stmt = $connexion->prepare('SELECT * FROM users WHERE email = ?'); // Prépare une requête sécurisée pour éviter les injections SQL
+        $stmt = $connexion->prepare('SELECT id, name, email, password FROM users WHERE email = ? LIMIT 1'); // Prépare une requête sécurisée pour éviter les injections SQL
         $stmt->execute([$email]); // Exécute la requête avec l'email fourni
         $infosUtilisateur = $stmt->fetch(PDO::FETCH_ASSOC); // Récupère les informations de l'utilisateur (sous forme de tableau associatif)
         // PDO = Méthode PHP pour communiquer avec une base de données de manière sécurisée.
@@ -274,16 +245,16 @@ switch ($action) {
     case 'get_groups':
         try {
             // Récupère tous les groupes, du plus récent au plus ancien
-            $sql = "SELECT * FROM `groups` ORDER BY created_at DESC";
+            $sql = "SELECT id, name, description, created_by, created_at FROM `groups` ORDER BY created_at DESC LIMIT 100";
             $stmt = $connexion->prepare($sql);
             $stmt->execute();
-            $groups = $stmt->fetchAll(PDO::FETCH_ASSOC); // Transforme le résultat en tableau PHP
+            $groupes = $stmt->fetchAll(PDO::FETCH_ASSOC); // Transforme le résultat en tableau PHP
 
             header('Content-Type: application/json');
-            echo json_encode($groups); // Renvoie les données au format JSON au frontend
+            echo json_encode($groupes); // Renvoie les données au format JSON au frontend
         } catch(PDOException $e) {
             header('Content-Type: application/json');
-            echo json_encode(["error" => $e->getMessage()]);
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         }
         exit;
 
@@ -291,11 +262,12 @@ switch ($action) {
         // Utilisé pour peupler le menu déroulant "Payé par" avec les vrais IDs BDD
         header('Content-Type: application/json');
         try {
-            $stmt = $connexion->prepare("SELECT id, name FROM users ORDER BY name");
+            $stmt = $connexion->prepare("SELECT id, name FROM users ORDER BY name LIMIT 100");
             $stmt->execute();
-            echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+            $utilisateurs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            echo json_encode($utilisateurs);
         } catch (PDOException $e) {
-            echo json_encode(['error' => $e->getMessage()]);
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         }
         exit;
 
@@ -313,27 +285,31 @@ switch ($action) {
         }
         if ($_SERVER["REQUEST_METHOD"] == "POST") {
             // htmlspecialchars empêche l'exécution de code malveillant (Faille XSS)
-            $name        = htmlspecialchars($_POST['name']);
+            $nom         = htmlspecialchars($_POST['name']);
             $description = htmlspecialchars($_POST['description']);
-            $created_by  = (int) $_SESSION['utilisateur']['id']; // ID réel de l'utilisateur connecté
-            $members     = isset($_POST['members']) ? json_decode($_POST['members'], true) : [];
+            $creePar     = (int) $_SESSION['utilisateur']['id']; // ID réel de l'utilisateur connecté
+            if (isset($_POST['members'])) {
+                $membres = json_decode($_POST['members'], true);
+            } else {
+                $membres = [];
+            }
 
             try {
                 $sql = "INSERT INTO `groups` (name, description, created_by) VALUES (:n, :d, :c)";
                 $stmt = $connexion->prepare($sql);
-                $stmt->execute([':n' => $name, ':d' => $description, ':c' => $created_by]);
+                $stmt->execute([':n' => $nom, ':d' => $description, ':c' => $creePar]);
 
                 // Ajout automatique du créateur comme premier membre du groupe
-                $new_group_id = (int) $connexion->lastInsertId();
-                $stmt2 = $connexion->prepare("INSERT IGNORE INTO participations (user_id, group_id) VALUES (?, ?)");
-                $stmt2->execute([$created_by, $new_group_id]);
+                $idNouveauGroupe = (int) $connexion->lastInsertId();
+                $requeteParticipation = $connexion->prepare("INSERT IGNORE INTO participations (user_id, group_id) VALUES (?, ?)");
+                $requeteParticipation->execute([$creePar, $idNouveauGroupe]);
 
                 // Ajout des membres sélectionnés
-                if (is_array($members)) {
-                    foreach ($members as $uid) {
-                        $uid = (int) $uid;
-                        if ($uid > 0) {
-                            $stmt2->execute([$uid, $new_group_id]);
+                if (is_array($membres)) {
+                    foreach ($membres as $idMembre) {
+                        $idMembre = (int) $idMembre;
+                        if ($idMembre > 0) {
+                            $requeteParticipation->execute([$idMembre, $idNouveauGroupe]);
                         }
                     }
                 }
@@ -342,7 +318,7 @@ switch ($action) {
                 echo json_encode(['success' => true]);
             } catch(PDOException $e) {
                 header('Content-Type: application/json');
-                echo json_encode(['error' => $e->getMessage()]);
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
             }
         }
         exit;
@@ -368,8 +344,8 @@ switch ($action) {
             // 3. htmlspecialchars() : Convertit les caractères spéciaux (comme < ou >) en entités inoffensives (&lt;, &gt;). Cela empêche un attaquant d'injecter du code Javascript (Faille XSS).
             $group_id = intval($_POST['group_id'] ?? 0);
             $payer_id = intval($_POST['payer_id'] ?? $_SESSION['utilisateur']['id']);
-            $amount   = floatval($_POST['amount'] ?? 0);
-            $reason   = htmlspecialchars($_POST['reason'] ?? 'Sans motif');
+            $montant  = floatval($_POST['amount'] ?? 0);
+            $motif    = htmlspecialchars($_POST['reason'] ?? 'Sans motif');
             $date     = htmlspecialchars($_POST['expense_date'] ?? date('Y-m-d'));
 
             try {
@@ -377,29 +353,31 @@ switch ($action) {
                 $sql = "INSERT INTO expenses (group_id, payer_id, amount, expense_date, reason)
                         VALUES (:g, :p, :a, :d, :r)";
                 $stmt = $connexion->prepare($sql);
-                $stmt->execute([':g'=>$group_id, ':p'=>$payer_id, ':a'=>$amount, ':d'=>$date, ':r'=>$reason]);
+                $stmt->execute([':g' => $group_id, ':p' => $payer_id, ':a' => $montant, ':d' => $date, ':r' => $motif]);
 
                 header('Content-Type: application/json');
                 echo json_encode(['success' => true]);
 
                 // Flux 16 : enregistre les participants dans un bloc séparé
                 // Séparé du try principal : si l'INSERT échoue, la dépense reste sauvegardée
-                $expenseId = (int) $connexion->lastInsertId();
+                $idNouvelleDepense = (int) $connexion->lastInsertId();
                 if (!empty($_POST['participants'])) {
-                    $participants = json_decode($_POST['participants'], true);
-                    if (is_array($participants) && count($participants) > 0) {
+                    $listeParticipants = json_decode($_POST['participants'], true);
+                    if (is_array($listeParticipants) && count($listeParticipants) > 0) {
                         try {
-                            $stmtP = $connexion->prepare("INSERT IGNORE INTO expense_participants (expense_id, user_id) VALUES (?, ?)");
-                            foreach ($participants as $uid) {
-                                $uid = (int) $uid;
-                                if ($uid > 0) $stmtP->execute([$expenseId, $uid]);
+                            $requeteParticipants = $connexion->prepare("INSERT IGNORE INTO expense_participants (expense_id, user_id) VALUES (?, ?)");
+                            foreach ($listeParticipants as $idMembre) {
+                                $idMembre = (int) $idMembre;
+                                if ($idMembre > 0) {
+                                    $requeteParticipants->execute([$idNouvelleDepense, $idMembre]);
+                                }
                             }
                         } catch (PDOException $e2) { /* Silencieux : ne pas bloquer la réponse */ }
                     }
                 }
             } catch(PDOException $e) {
                 header('Content-Type: application/json');
-                echo json_encode(['error' => $e->getMessage()]);
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
             }
         }
         exit;
@@ -426,18 +404,23 @@ switch ($action) {
             $id = intval($_POST['id']);
             try {
                 // Suppression dans l'ordre pour respecter les contraintes de clés étrangères
-                $connexion->prepare("DELETE FROM settlements  WHERE group_id = ?")->execute([$id]);
-                $connexion->prepare("DELETE FROM expenses     WHERE group_id = ?")->execute([$id]);
-                $connexion->prepare("DELETE FROM participations WHERE group_id = ?")->execute([$id]);
+                $requete1 = $connexion->prepare("DELETE FROM settlements WHERE group_id = ?");
+                $requete1->execute([$id]);
 
-                $stmt = $connexion->prepare("DELETE FROM `groups` WHERE id = ?");
-                $stmt->execute([$id]);
+                $requete2 = $connexion->prepare("DELETE FROM expenses WHERE group_id = ?");
+                $requete2->execute([$id]);
+
+                $requete3 = $connexion->prepare("DELETE FROM participations WHERE group_id = ?");
+                $requete3->execute([$id]);
+
+                $requete4 = $connexion->prepare("DELETE FROM `groups` WHERE id = ?");
+                $requete4->execute([$id]);
 
                 header('Content-Type: application/json');
                 echo json_encode(["success" => true]);
             } catch(PDOException $e) {
                 header('Content-Type: application/json');
-                echo json_encode(["error" => $e->getMessage()]);
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
             }
         }
         exit;
@@ -456,23 +439,24 @@ switch ($action) {
             exit;
         }
         // Récupère l'ID de l'utilisateur depuis la session (stockée au moment du login)
-        $uid = (int) $_SESSION['utilisateur']['id'];
+        $idUtilisateur = (int) $_SESSION['utilisateur']['id'];
 
         try {
             header('Content-Type: application/json');
 
             // --- Requête SQL 1 : récupère les 5 groupes les plus récents ---
             $stmt = $connexion->prepare(
-                "SELECT * FROM `groups` ORDER BY created_at DESC LIMIT 5"
+                "SELECT id, name, description, created_by, created_at FROM `groups` ORDER BY created_at DESC LIMIT 5"
             );
             $stmt->execute();
-            $groups = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $groupes = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             // --- Requête SQL 2 : récupère les 5 dernières dépenses avec nom du groupe ET nom du payeur ---
             // Double LEFT JOIN : expenses -> groups (nom du groupe) + expenses -> users (nom du payeur)
             // Utilise l'ID réel de la table users, pas un ID hardcodé
             $stmt = $connexion->prepare(
-                "SELECT e.*, g.name AS group_name, u.name AS payer_name
+                "SELECT e.id, e.group_id, e.payer_id, e.amount, e.expense_date, e.reason,
+                        g.name AS group_name, u.name AS payer_name
                  FROM expenses e
                  LEFT JOIN `groups` g ON e.group_id = g.id
                  LEFT JOIN users u ON e.payer_id = u.id
@@ -480,92 +464,101 @@ switch ($action) {
                  LIMIT 5"
             );
             $stmt->execute();
-            $expenses = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $depenses = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             // --- Calcul brut des soldes par groupe ---
             // "on_me_doit" s'accumule pour chaque dépense où j'ai payé (les autres me doivent leur part).
             // "je_dois"    s'accumule pour chaque dépense où quelqu'un d'autre a payé et je suis participant.
             // Les deux côtés s'accumulent indépendamment : on ne compense pas "je dois X" avec "X me doit Y".
-            $stmtUG = $connexion->prepare("SELECT group_id FROM participations WHERE user_id = ?");
-            $stmtUG->execute([$uid]);
-            $myGroupIds = array_column($stmtUG->fetchAll(PDO::FETCH_ASSOC), 'group_id');
+            $requeteGroupes = $connexion->prepare("SELECT group_id FROM participations WHERE user_id = ? LIMIT 200");
+            $requeteGroupes->execute([$idUtilisateur]);
+            $mesGroupes = array_column($requeteGroupes->fetchAll(PDO::FETCH_ASSOC), 'group_id');
 
             $je_dois    = 0.0;
             $on_me_doit = 0.0;
 
-            foreach ($myGroupIds as $gid) {
-                $gid = (int) $gid;
+            foreach ($mesGroupes as $idGroupe) {
+                $idGroupe = (int) $idGroupe;
 
                 // Membres réels du groupe (fallback quand expense_participants est vide)
-                $stmtM = $connexion->prepare(
-                    "SELECT id FROM users
+                $requeteMembres = $connexion->prepare(
+                    "SELECT users.id FROM users
                      JOIN participations ON users.id = participations.user_id
-                     WHERE participations.group_id = ?"
+                     WHERE participations.group_id = ?
+                     LIMIT 100"
                 );
-                $stmtM->execute([$gid]);
-                $memberIds = array_map('intval', array_column($stmtM->fetchAll(PDO::FETCH_ASSOC), 'id'));
+                $requeteMembres->execute([$idGroupe]);
+                $idsMembres = array_map('intval', array_column($requeteMembres->fetchAll(PDO::FETCH_ASSOC), 'id'));
 
                 // Tous les participants par dépense pour ce groupe (une seule requête)
-                $stmtAP = $connexion->prepare(
+                $requeteParticipants = $connexion->prepare(
                     "SELECT ep.expense_id, ep.user_id
                      FROM expense_participants ep
                      JOIN expenses e ON ep.expense_id = e.id
-                     WHERE e.group_id = ?"
+                     WHERE e.group_id = ?
+                     LIMIT 1000"
                 );
-                $stmtAP->execute([$gid]);
-                $participantsMap = [];
-                foreach ($stmtAP->fetchAll(PDO::FETCH_ASSOC) as $row) {
-                    $participantsMap[(int)$row['expense_id']][] = (int)$row['user_id'];
+                $requeteParticipants->execute([$idGroupe]);
+                $participantsParDepense = [];
+                foreach ($requeteParticipants->fetchAll(PDO::FETCH_ASSOC) as $ligne) {
+                    $participantsParDepense[(int)$ligne['expense_id']][] = (int)$ligne['user_id'];
                 }
 
                 // Dépenses du groupe
-                $stmtE = $connexion->prepare("SELECT id, payer_id, amount FROM expenses WHERE group_id = ?");
-                $stmtE->execute([$gid]);
+                $requeteDepenses = $connexion->prepare("SELECT id, payer_id, amount FROM expenses WHERE group_id = ? LIMIT 500");
+                $requeteDepenses->execute([$idGroupe]);
 
-                foreach ($stmtE->fetchAll(PDO::FETCH_ASSOC) as $exp) {
-                    $expId   = (int) $exp['id'];
-                    $payerId = (int) $exp['payer_id'];
-                    $partIds = $participantsMap[$expId] ?? $memberIds;
-                    $n       = count($partIds);
-                    if ($n === 0) continue;
+                foreach ($requeteDepenses->fetchAll(PDO::FETCH_ASSOC) as $depense) {
+                    $idExp          = (int) $depense['id'];
+                    $idPayeur       = (int) $depense['payer_id'];
+                    $idsParticipants = $participantsParDepense[$idExp] ?? $idsMembres;
+                    $nbParticipants  = count($idsParticipants);
+                    if ($nbParticipants === 0) {
+                        continue;
+                    }
 
-                    $share = (float) $exp['amount'] / $n;
+                    $partChacun = (float) $depense['amount'] / $nbParticipants;
 
-                    if ($payerId === $uid) {
+                    if ($idPayeur === $idUtilisateur) {
                         // J'ai payé : chaque autre participant me doit sa part
                         // Si je suis moi-même dans la liste, je ne me dois pas ma propre part
-                        $owers = in_array($uid, $partIds) ? ($n - 1) : $n;
-                        $on_me_doit += $share * $owers;
-                    } elseif (in_array($uid, $partIds)) {
+                        if (in_array($idUtilisateur, $idsParticipants)) {
+                            $nbDebiteurs = $nbParticipants - 1;
+                        } else {
+                            $nbDebiteurs = $nbParticipants;
+                        }
+                        $on_me_doit += $partChacun * $nbDebiteurs;
+                    } elseif (in_array($idUtilisateur, $idsParticipants)) {
                         // Quelqu'un d'autre a payé et je suis participant : je dois ma part
-                        $je_dois += $share;
+                        $je_dois += $partChacun;
                     }
                 }
             }
 
             // --- Total payé par moi ce mois-ci (ce que j'ai réellement sorti de ma poche) ---
-            $stmtT = $connexion->prepare(
+            $requeteTotalMois = $connexion->prepare(
                 "SELECT COALESCE(SUM(amount), 0) AS total_mois
                  FROM expenses
                  WHERE payer_id = ?
                  AND YEAR(expense_date)  = YEAR(CURDATE())
-                 AND MONTH(expense_date) = MONTH(CURDATE())"
+                 AND MONTH(expense_date) = MONTH(CURDATE())
+                 LIMIT 1"
             );
-            $stmtT->execute([$uid]);
-            $mensuel = $stmtT->fetch(PDO::FETCH_ASSOC);
+            $requeteTotalMois->execute([$idUtilisateur]);
+            $totalMensuel = $requeteTotalMois->fetch(PDO::FETCH_ASSOC);
 
             // Flux retour : envoi des 3 blocs de données en JSON vers le frontend Vue.js
             echo json_encode([
-                'groups'   => $groups,
-                'expenses' => $expenses,
+                'groups'   => $groupes,
+                'expenses' => $depenses,
                 'balance'  => [
                     'je_dois'    => round($je_dois,    2),
                     'on_me_doit' => round($on_me_doit, 2),
-                    'total_mois' => round((float) $mensuel['total_mois'], 2)
+                    'total_mois' => round((float) $totalMensuel['total_mois'], 2)
                 ]
             ]);
         } catch (PDOException $e) {
-            echo json_encode(['error' => $e->getMessage()]);
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         }
         exit;
 
@@ -580,90 +573,102 @@ switch ($action) {
             echo json_encode(['error' => 'Non connecté']);
             exit;
         }
-        $uid   = (int) $_SESSION['utilisateur']['id'];
-        $year  = (int) ($_GET['year']  ?? date('Y'));
-        $month = (int) ($_GET['month'] ?? date('n'));
+        $idUtilisateur = (int) $_SESSION['utilisateur']['id'];
+        $annee         = (int) ($_GET['year']  ?? date('Y'));
+        $mois          = (int) ($_GET['month'] ?? date('n'));
 
         header('Content-Type: application/json');
         try {
             // Même formule brute que get_dashboard, filtrée sur le mois demandé
-            $stmtUG = $connexion->prepare("SELECT group_id FROM participations WHERE user_id = ?");
-            $stmtUG->execute([$uid]);
-            $myGroupIds = array_column($stmtUG->fetchAll(PDO::FETCH_ASSOC), 'group_id');
+            $requeteGroupes = $connexion->prepare("SELECT group_id FROM participations WHERE user_id = ? LIMIT 200");
+            $requeteGroupes->execute([$idUtilisateur]);
+            $mesGroupes = array_column($requeteGroupes->fetchAll(PDO::FETCH_ASSOC), 'group_id');
 
             $je_dois    = 0.0;
             $on_me_doit = 0.0;
 
-            foreach ($myGroupIds as $gid) {
-                $gid = (int) $gid;
+            foreach ($mesGroupes as $idGroupe) {
+                $idGroupe = (int) $idGroupe;
 
-                $stmtM = $connexion->prepare(
-                    "SELECT id FROM users
+                $requeteMembres = $connexion->prepare(
+                    "SELECT users.id FROM users
                      JOIN participations ON users.id = participations.user_id
-                     WHERE participations.group_id = ?"
+                     WHERE participations.group_id = ?
+                     LIMIT 100"
                 );
-                $stmtM->execute([$gid]);
-                $memberIds = array_map('intval', array_column($stmtM->fetchAll(PDO::FETCH_ASSOC), 'id'));
+                $requeteMembres->execute([$idGroupe]);
+                $idsMembres = array_map('intval', array_column($requeteMembres->fetchAll(PDO::FETCH_ASSOC), 'id'));
 
-                $stmtAP = $connexion->prepare(
+                $requeteParticipants = $connexion->prepare(
                     "SELECT ep.expense_id, ep.user_id
                      FROM expense_participants ep
                      JOIN expenses e ON ep.expense_id = e.id
-                     WHERE e.group_id = ?"
+                     WHERE e.group_id = ?
+                     LIMIT 1000"
                 );
-                $stmtAP->execute([$gid]);
-                $participantsMap = [];
-                foreach ($stmtAP->fetchAll(PDO::FETCH_ASSOC) as $row) {
-                    $participantsMap[(int)$row['expense_id']][] = (int)$row['user_id'];
+                $requeteParticipants->execute([$idGroupe]);
+                $participantsParDepense = [];
+                foreach ($requeteParticipants->fetchAll(PDO::FETCH_ASSOC) as $ligne) {
+                    $participantsParDepense[(int)$ligne['expense_id']][] = (int)$ligne['user_id'];
                 }
 
                 // Dépenses du groupe filtrées sur le mois demandé
-                $stmtE = $connexion->prepare(
+                $requeteDepenses = $connexion->prepare(
                     "SELECT id, payer_id, amount FROM expenses
                      WHERE group_id = ?
-                     AND YEAR(expense_date) = ? AND MONTH(expense_date) = ?"
+                     AND YEAR(expense_date) = ? AND MONTH(expense_date) = ?
+                     LIMIT 500"
                 );
-                $stmtE->execute([$gid, $year, $month]);
+                $requeteDepenses->execute([$idGroupe, $annee, $mois]);
 
-                foreach ($stmtE->fetchAll(PDO::FETCH_ASSOC) as $exp) {
-                    $expId   = (int) $exp['id'];
-                    $payerId = (int) $exp['payer_id'];
-                    $partIds = $participantsMap[$expId] ?? $memberIds;
-                    $n       = count($partIds);
-                    if ($n === 0) continue;
+                foreach ($requeteDepenses->fetchAll(PDO::FETCH_ASSOC) as $depense) {
+                    $idExp          = (int) $depense['id'];
+                    $idPayeur       = (int) $depense['payer_id'];
+                    $idsParticipants = $participantsParDepense[$idExp] ?? $idsMembres;
+                    $nbParticipants  = count($idsParticipants);
+                    if ($nbParticipants === 0) {
+                        continue;
+                    }
 
-                    $share = (float) $exp['amount'] / $n;
+                    $partChacun = (float) $depense['amount'] / $nbParticipants;
 
-                    if ($payerId === $uid) {
-                        $owers = in_array($uid, $partIds) ? ($n - 1) : $n;
-                        $on_me_doit += $share * $owers;
-                    } elseif (in_array($uid, $partIds)) {
-                        $je_dois += $share;
+                    if ($idPayeur === $idUtilisateur) {
+                        if (in_array($idUtilisateur, $idsParticipants)) {
+                            $nbDebiteurs = $nbParticipants - 1;
+                        } else {
+                            $nbDebiteurs = $nbParticipants;
+                        }
+                        $on_me_doit += $partChacun * $nbDebiteurs;
+                    } elseif (in_array($idUtilisateur, $idsParticipants)) {
+                        $je_dois += $partChacun;
                     }
                 }
             }
 
             // Dates des dépenses du mois pour le marquage du calendrier (Accueil.js hasExpense)
-            $expenseDates = [];
-            if (!empty($myGroupIds)) {
-                $placeholders = implode(',', array_fill(0, count($myGroupIds), '?'));
-                $stmtD = $connexion->prepare(
+            $datesDepenses = [];
+            if (!empty($mesGroupes)) {
+                $points = implode(',', array_fill(0, count($mesGroupes), '?'));
+                $requeteDates = $connexion->prepare(
                     "SELECT DISTINCT DATE_FORMAT(expense_date, '%Y-%m-%d') AS date_str
                      FROM expenses
-                     WHERE group_id IN ($placeholders)
-                     AND YEAR(expense_date) = ? AND MONTH(expense_date) = ?"
+                     WHERE group_id IN ($points)
+                     AND YEAR(expense_date) = ? AND MONTH(expense_date) = ?
+                     LIMIT 100"
                 );
-                $stmtD->execute(array_merge(array_map('intval', $myGroupIds), [$year, $month]));
-                $expenseDates = array_column($stmtD->fetchAll(PDO::FETCH_ASSOC), 'date_str');
+                $idsGroupesEntiers = array_map('intval', $mesGroupes);
+                $params = array_merge($idsGroupesEntiers, [$annee, $mois]);
+                $requeteDates->execute($params);
+                $datesDepenses = array_column($requeteDates->fetchAll(PDO::FETCH_ASSOC), 'date_str');
             }
 
             echo json_encode([
                 'je_dois'       => round($je_dois,    2),
                 'on_me_doit'    => round($on_me_doit, 2),
-                'expense_dates' => $expenseDates
+                'expense_dates' => $datesDepenses
             ]);
         } catch (PDOException $e) {
-            echo json_encode(['error' => $e->getMessage()]);
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         }
         exit;
 
@@ -677,7 +682,7 @@ switch ($action) {
     // Requête 1/4 : total avancé par membre dans un groupe (base de calcul des remboursements)
     case 'get_group_totals':
         header('Content-Type: application/json');
-        $gid = (int) ($_GET['group_id'] ?? 0);
+        $idGroupe = (int) ($_GET['group_id'] ?? 0);
         try {
             // JOIN expenses + users -> SUM par payeur -> base pour calculer les remboursements
             $stmt = $connexion->prepare(
@@ -685,17 +690,21 @@ switch ($action) {
                  FROM expenses
                  JOIN users ON expenses.payer_id = users.id
                  WHERE expenses.group_id = ?
-                 GROUP BY users.id, users.name"
+                 GROUP BY users.id, users.name
+                 LIMIT 100"
             );
-            $stmt->execute([$gid]);
-            echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
-        } catch (PDOException $e) { echo json_encode(['error' => $e->getMessage()]); }
+            $stmt->execute([$idGroupe]);
+            $resultats = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            echo json_encode($resultats);
+        } catch (PDOException $e) {
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
         exit;
 
     // Requête 2/4 : dépenses d'un groupe avec nom du payeur (version lisible)
     case 'get_group_expenses_named':
         header('Content-Type: application/json');
-        $gid = (int) ($_GET['group_id'] ?? 0);
+        $idGroupe = (int) ($_GET['group_id'] ?? 0);
         try {
             // JOIN expenses + users -> remplace payer_id par un vrai prénom
             $stmt = $connexion->prepare(
@@ -703,35 +712,43 @@ switch ($action) {
                  FROM expenses
                  JOIN users ON expenses.payer_id = users.id
                  WHERE expenses.group_id = ?
-                 ORDER BY expenses.amount DESC"
+                 ORDER BY expenses.amount DESC
+                 LIMIT 100"
             );
-            $stmt->execute([$gid]);
-            echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
-        } catch (PDOException $e) { echo json_encode(['error' => $e->getMessage()]); }
+            $stmt->execute([$idGroupe]);
+            $depenses = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            echo json_encode($depenses);
+        } catch (PDOException $e) {
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
         exit;
 
     // Requête 3/4 : membres d'un groupe (via la table participations)
     // users.id est retourné pour permettre la sélection de participants (Flux 16)
     case 'get_group_members':
         header('Content-Type: application/json');
-        $gid = (int) ($_GET['group_id'] ?? 0);
+        $idGroupe = (int) ($_GET['group_id'] ?? 0);
         try {
             // JOIN users + participations -> liste des membres du groupe (id inclus pour Flux 16)
             $stmt = $connexion->prepare(
                 "SELECT users.id, users.name, users.email
                  FROM users
                  JOIN participations ON users.id = participations.user_id
-                 WHERE participations.group_id = ?"
+                 WHERE participations.group_id = ?
+                 LIMIT 100"
             );
-            $stmt->execute([$gid]);
-            echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
-        } catch (PDOException $e) { echo json_encode(['error' => $e->getMessage()]); }
+            $stmt->execute([$idGroupe]);
+            $membres = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            echo json_encode($membres);
+        } catch (PDOException $e) {
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
         exit;
 
     // Requête 4/4 : remboursements enregistrés dans un groupe
     case 'get_group_settlements':
         header('Content-Type: application/json');
-        $gid = (int) ($_GET['group_id'] ?? 0);
+        $idGroupe = (int) ($_GET['group_id'] ?? 0);
         try {
             // Double JOIN sur users -> remplace sender_id et receiver_id par leurs noms
             $stmt = $connexion->prepare(
@@ -741,11 +758,15 @@ switch ($action) {
                  JOIN users AS sender   ON settlements.sender_id   = sender.id
                  JOIN users AS receiver ON settlements.receiver_id = receiver.id
                  WHERE settlements.group_id = ?
-                 ORDER BY settlements.settlement_date DESC"
+                 ORDER BY settlements.settlement_date DESC
+                 LIMIT 100"
             );
-            $stmt->execute([$gid]);
-            echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
-        } catch (PDOException $e) { echo json_encode(['error' => $e->getMessage()]); }
+            $stmt->execute([$idGroupe]);
+            $remboursements = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            echo json_encode($remboursements);
+        } catch (PDOException $e) {
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
         exit;
 
     /* =========================================================================
@@ -763,15 +784,17 @@ switch ($action) {
         }
         header('Content-Type: application/json');
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $user_id  = intval($_POST['user_id']  ?? 0);
+            $idMembre = intval($_POST['user_id']  ?? 0);
             $group_id = intval($_POST['group_id'] ?? 0);
             try {
                 $stmt = $connexion->prepare(
                     "INSERT IGNORE INTO participations (user_id, group_id) VALUES (?, ?)"
                 );
-                $stmt->execute([$user_id, $group_id]);
+                $stmt->execute([$idMembre, $group_id]);
                 echo json_encode(['success' => true]);
-            } catch (PDOException $e) { echo json_encode(['error' => $e->getMessage()]); }
+            } catch (PDOException $e) {
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
         }
         exit;
 
@@ -790,18 +813,20 @@ switch ($action) {
         header('Content-Type: application/json');
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $group_id    = intval($_POST['group_id']    ?? 0);
-            $sender_id   = intval($_POST['sender_id']   ?? 0);
-            $receiver_id = intval($_POST['receiver_id'] ?? 0);
-            $amount      = floatval($_POST['amount']    ?? 0);
-            $date        = date('Y-m-d');
+            $idEnvoyeur  = intval($_POST['sender_id']   ?? 0);
+            $idReceveur  = intval($_POST['receiver_id'] ?? 0);
+            $montant     = floatval($_POST['amount']    ?? 0);
+            $dateAuj     = date('Y-m-d');
             try {
                 $stmt = $connexion->prepare(
                     "INSERT INTO settlements (group_id, sender_id, receiver_id, amount, settlement_date)
                      VALUES (?, ?, ?, ?, ?)"
                 );
-                $stmt->execute([$group_id, $sender_id, $receiver_id, $amount, $date]);
+                $stmt->execute([$group_id, $idEnvoyeur, $idReceveur, $montant, $dateAuj]);
                 echo json_encode(['success' => true]);
-            } catch (PDOException $e) { echo json_encode(['error' => $e->getMessage()]); }
+            } catch (PDOException $e) {
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
         }
         exit;
 
@@ -818,11 +843,17 @@ switch ($action) {
         header('Content-Type: application/json');
         $id = (int) ($_GET['id'] ?? 0);
         try {
-            $stmt = $connexion->prepare("SELECT * FROM expenses WHERE id = ?");
+            $stmt = $connexion->prepare("SELECT id, group_id, payer_id, amount, expense_date, reason FROM expenses WHERE id = ? LIMIT 1");
             $stmt->execute([$id]);
-            $expense = $stmt->fetch(PDO::FETCH_ASSOC);
-            echo json_encode($expense ?: ['error' => 'Dépense introuvable']);
-        } catch (PDOException $e) { echo json_encode(['error' => $e->getMessage()]); }
+            $depense = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($depense) {
+                echo json_encode($depense);
+            } else {
+                echo json_encode(['error' => 'Dépense introuvable']);
+            }
+        } catch (PDOException $e) {
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
         exit;
 
     // Requête 2/2 : enregistrer les modifications de la dépense (+ mise à jour des participants)
@@ -838,36 +869,41 @@ switch ($action) {
             $id       = intval($_POST['id']           ?? 0);
             $group_id = intval($_POST['group_id']     ?? 0);
             $payer_id = intval($_POST['payer_id']     ?? 0);
-            $amount   = floatval($_POST['amount']     ?? 0);
-            $reason   = htmlspecialchars($_POST['reason']       ?? '');
+            $montant  = floatval($_POST['amount']     ?? 0);
+            $motif    = htmlspecialchars($_POST['reason']       ?? '');
             $date     = htmlspecialchars($_POST['expense_date'] ?? date('Y-m-d'));
             try {
                 $stmt = $connexion->prepare(
                     "UPDATE expenses
                      SET group_id=:g, payer_id=:p, amount=:a, expense_date=:d, reason=:r
-                     WHERE id=:id"
+                     WHERE id=:id LIMIT 1"
                 );
-                $stmt->execute([':g'=>$group_id,':p'=>$payer_id,':a'=>$amount,':d'=>$date,':r'=>$reason,':id'=>$id]);
+                $stmt->execute([':g' => $group_id, ':p' => $payer_id, ':a' => $montant, ':d' => $date, ':r' => $motif, ':id' => $id]);
 
                 echo json_encode(['success' => true]);
 
                 // Flux 16 : remplace les anciens participants par les nouveaux (bloc séparé)
                 // Séparé du try principal : si l'UPDATE participants échoue, la modification est quand même sauvée
                 try {
-                    $connexion->prepare("DELETE FROM expense_participants WHERE expense_id = ?")->execute([$id]);
+                    $requeteSuppr = $connexion->prepare("DELETE FROM expense_participants WHERE expense_id = ?");
+                    $requeteSuppr->execute([$id]);
                     if (!empty($_POST['participants'])) {
-                        $participants = json_decode($_POST['participants'], true);
-                        if (is_array($participants) && count($participants) > 0) {
-                            $stmtP = $connexion->prepare("INSERT IGNORE INTO expense_participants (expense_id, user_id) VALUES (?, ?)");
-                            foreach ($participants as $uid) {
-                                $uid = (int) $uid;
-                                if ($uid > 0) $stmtP->execute([$id, $uid]);
+                        $listeParticipants = json_decode($_POST['participants'], true);
+                        if (is_array($listeParticipants) && count($listeParticipants) > 0) {
+                            $requeteParticipants = $connexion->prepare("INSERT IGNORE INTO expense_participants (expense_id, user_id) VALUES (?, ?)");
+                            foreach ($listeParticipants as $idMembre) {
+                                $idMembre = (int) $idMembre;
+                                if ($idMembre > 0) {
+                                    $requeteParticipants->execute([$id, $idMembre]);
+                                }
                             }
                         }
                     }
                 } catch (PDOException $e2) { /* Silencieux : ne pas bloquer la réponse */ }
 
-            } catch (PDOException $e) { echo json_encode(['error' => $e->getMessage()]); }
+            } catch (PDOException $e) {
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
         }
         exit;
 
@@ -887,11 +923,11 @@ switch ($action) {
             $id = intval($_POST['id'] ?? 0);
             header('Content-Type: application/json');
             try {
-                $stmt = $connexion->prepare("DELETE FROM expenses WHERE id = ?");
+                $stmt = $connexion->prepare("DELETE FROM expenses WHERE id = ? LIMIT 1");
                 $stmt->execute([$id]);
                 echo json_encode(['success' => true]);
             } catch (PDOException $e) {
-                echo json_encode(['error' => $e->getMessage()]);
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
             }
         }
         exit;
@@ -908,76 +944,90 @@ switch ($action) {
     // Requête 1/2 : soldes nets par membre (algorithme basé sur expense_participants)
     case 'get_group_balances':
         header('Content-Type: application/json');
-        $gid = (int) ($_GET['group_id'] ?? 0);
+        $idGroupe = (int) ($_GET['group_id'] ?? 0);
         try {
             // Récupère tous les membres du groupe (avec leurs IDs)
-            $stmtM = $connexion->prepare(
+            $requeteMembres = $connexion->prepare(
                 "SELECT users.id, users.name FROM users
                  JOIN participations ON users.id = participations.user_id
-                 WHERE participations.group_id = ?"
+                 WHERE participations.group_id = ?
+                 LIMIT 100"
             );
-            $stmtM->execute([$gid]);
-            $members = $stmtM->fetchAll(PDO::FETCH_ASSOC);
+            $requeteMembres->execute([$idGroupe]);
+            $membres = $requeteMembres->fetchAll(PDO::FETCH_ASSOC);
 
             // Initialise le solde net de chaque membre à 0
-            $balances = [];
-            foreach ($members as $m) {
-                $balances[(int)$m['id']] = ['name' => $m['name'], 'net' => 0.0];
+            $soldes = [];
+            foreach ($membres as $membre) {
+                $idMembre = (int) $membre['id'];
+                $soldes[$idMembre] = ['name' => $membre['name'], 'net' => 0.0];
             }
 
             // Récupère toutes les dépenses du groupe
-            $stmtE = $connexion->prepare("SELECT id, payer_id, amount FROM expenses WHERE group_id = ?");
-            $stmtE->execute([$gid]);
-            $expenses = $stmtE->fetchAll(PDO::FETCH_ASSOC);
+            $requeteDepenses = $connexion->prepare("SELECT id, payer_id, amount FROM expenses WHERE group_id = ? LIMIT 500");
+            $requeteDepenses->execute([$idGroupe]);
+            $depenses = $requeteDepenses->fetchAll(PDO::FETCH_ASSOC);
 
-            $stmtP = $connexion->prepare("SELECT user_id FROM expense_participants WHERE expense_id = ?");
-            $memberIds = array_column($members, 'id'); // fallback : tous les membres
+            $requeteParticipantsDepense = $connexion->prepare("SELECT user_id FROM expense_participants WHERE expense_id = ? LIMIT 100");
+            $idsMembres = array_column($membres, 'id'); // fallback : tous les membres
 
-            foreach ($expenses as $exp) {
+            foreach ($depenses as $depense) {
                 // Requête des participants spécifiques à cette dépense
-                $stmtP->execute([(int)$exp['id']]);
-                $rows = $stmtP->fetchAll(PDO::FETCH_ASSOC);
-                $participantIds = !empty($rows)
-                    ? array_map('intval', array_column($rows, 'user_id'))
-                    : array_map('intval', $memberIds); // fallback = tous les membres
+                $requeteParticipantsDepense->execute([(int)$depense['id']]);
+                $lignes = $requeteParticipantsDepense->fetchAll(PDO::FETCH_ASSOC);
+                if (!empty($lignes)) {
+                    $idsParticipants = array_map('intval', array_column($lignes, 'user_id'));
+                } else {
+                    $idsParticipants = array_map('intval', $idsMembres); // fallback = tous les membres
+                }
 
-                $n = count($participantIds);
-                if ($n === 0) continue;
+                $nbParticipants = count($idsParticipants);
+                if ($nbParticipants === 0) {
+                    continue;
+                }
 
-                $share    = (float)$exp['amount'] / $n;
-                $payerId  = (int)$exp['payer_id'];
+                $partChacun = (float) $depense['amount'] / $nbParticipants;
+                $idPayeur   = (int) $depense['payer_id'];
 
                 // Le payeur récupère la part de chaque participant (sauf la sienne)
                 // Chaque participant non-payeur doit sa part au payeur
-                foreach ($participantIds as $uid) {
-                    if (!isset($balances[$uid])) continue;
-                    if ($uid === $payerId) {
-                        $balances[$uid]['net'] += $share * ($n - 1); // créditeur
+                foreach ($idsParticipants as $idMembre) {
+                    if (!isset($soldes[$idMembre])) {
+                        continue;
+                    }
+                    if ($idMembre === $idPayeur) {
+                        $soldes[$idMembre]['net'] += $partChacun * ($nbParticipants - 1); // créditeur
                     } else {
-                        $balances[$uid]['net'] -= $share;             // débiteur
+                        $soldes[$idMembre]['net'] -= $partChacun;                         // débiteur
                     }
                 }
             }
 
             // Formatte en tableau JSON [{name, net_balance}]
-            $result = [];
-            foreach ($balances as $b) {
-                $result[] = ['name' => $b['name'], 'net_balance' => round($b['net'], 2)];
+            $resultat = [];
+            foreach ($soldes as $solde) {
+                $resultat[] = ['name' => $solde['name'], 'net_balance' => round($solde['net'], 2)];
             }
-            echo json_encode($result);
-        } catch (PDOException $e) { echo json_encode(['error' => $e->getMessage()]); }
+            echo json_encode($resultat);
+        } catch (PDOException $e) {
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
         exit;
 
     // Requête 2/2 : participants d'une dépense (IDs uniquement, pour pré-cocher les cases)
     case 'get_expense_participants':
         header('Content-Type: application/json');
-        $eid = (int) ($_GET['expense_id'] ?? 0);
+        $idDepense = (int) ($_GET['expense_id'] ?? 0);
         try {
-            $stmt = $connexion->prepare("SELECT user_id FROM expense_participants WHERE expense_id = ?");
-            $stmt->execute([$eid]);
+            $stmt = $connexion->prepare("SELECT user_id FROM expense_participants WHERE expense_id = ? LIMIT 100");
+            $stmt->execute([$idDepense]);
+            $lignes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $idsParticipants = array_column($lignes, 'user_id');
             // Retourne un tableau simple d'IDs entiers [1, 3, 5]
-            echo json_encode(array_map('intval', array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'user_id')));
-        } catch (PDOException $e) { echo json_encode(['error' => $e->getMessage()]); }
+            echo json_encode(array_map('intval', $idsParticipants));
+        } catch (PDOException $e) {
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
         exit;
 
     /* =========================================================================
@@ -996,18 +1046,20 @@ switch ($action) {
         header('Content-Type: application/json');
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $id          = intval($_POST['id']          ?? 0);
-            $name        = htmlspecialchars(trim($_POST['name']        ?? ''));
+            $nom         = htmlspecialchars(trim($_POST['name']        ?? ''));
             $description = htmlspecialchars(trim($_POST['description'] ?? ''));
-            if (strlen($name) < 2) {
+            if (strlen($nom) < 2) {
                 http_response_code(400);
                 echo json_encode(['error' => 'Le nom doit contenir au moins 2 caractères.']);
                 exit;
             }
             try {
-                $stmt = $connexion->prepare("UPDATE `groups` SET name = ?, description = ? WHERE id = ?");
-                $stmt->execute([$name, $description, $id]);
+                $stmt = $connexion->prepare("UPDATE `groups` SET name = ?, description = ? WHERE id = ? LIMIT 1");
+                $stmt->execute([$nom, $description, $id]);
                 echo json_encode(['success' => true]);
-            } catch (PDOException $e) { echo json_encode(['error' => $e->getMessage()]); }
+            } catch (PDOException $e) {
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
         }
         exit;
 
@@ -1027,13 +1079,15 @@ switch ($action) {
         }
         header('Content-Type: application/json');
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $group_id = intval($_POST['group_id'] ?? 0);
-            $user_id  = (int) $_SESSION['utilisateur']['id']; // ID de l'utilisateur connecté
+            $group_id      = intval($_POST['group_id'] ?? 0);
+            $idUtilisateur = (int) $_SESSION['utilisateur']['id']; // ID de l'utilisateur connecté
             try {
                 $stmt = $connexion->prepare("DELETE FROM participations WHERE user_id = ? AND group_id = ?");
-                $stmt->execute([$user_id, $group_id]);
+                $stmt->execute([$idUtilisateur, $group_id]);
                 echo json_encode(['success' => true]);
-            } catch (PDOException $e) { echo json_encode(['error' => $e->getMessage()]); }
+            } catch (PDOException $e) {
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
         }
         exit;
 
