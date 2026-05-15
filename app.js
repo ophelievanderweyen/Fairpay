@@ -148,7 +148,7 @@ const app = createApp({
         async register() {
             this.error = null;
             try {
-                fetch('api/backend.php?action=register', {
+                const res = await fetch('api/backend.php?action=register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(this.register_form)
