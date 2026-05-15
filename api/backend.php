@@ -44,8 +44,8 @@
 ini_set('session.cookie_httponly', 1); // empêche JavaScript d'accéder au cookie (injection JS= Les injections JS désignent le fait d'insérer du code JavaScript malveillant dans une page web pour qu'il s'exécute dans le navigateur d'une victime)
 ini_set('session.cookie_secure', 1);   // le cookie n'est envoyé que via HTTPS
 ini_set('session.cookie_samesite', 'Strict'); // aide à réduire les attaques CSRF, avec des valeurs comme Strict
-ini_set('session.cookie_lifetime', 86400); // 10 heures : durée raisonnable pour une session utilisateur
-ini_set('session.gc_maxlifetime',  86400); // Garde les données de session côté serveur aussi longtemps
+ini_set('session.cookie_lifetime', 60*60*10); // 10 heures : durée raisonnable pour une session utilisateur
+ini_set('session.gc_maxlifetime',  60*60*10); // Garde les données de session côté serveur aussi longtemps
 session_start(); // On démarre la session pour pouvoir stocker les infos de l'utilisateur
 
 // Elle dit au navigateur "à partir de maintenant, utilise HTTPS pour ce site"
