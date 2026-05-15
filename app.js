@@ -1,7 +1,7 @@
 /* =========================================================================
    APP.JS — Moteur central de Fairpay
    Flux traités : Flux 1 (Inscription) · Flux 2 (Connexion)
-                  Flux 7 (Déconnexion) · Flux 8 (Navigation)
+                  Flux 6 (Déconnexion) · Flux 7 (Navigation)
 
    TABLE DES MATIÈRES
    ──────────────────────────────────────────────────────────────────────
@@ -12,11 +12,11 @@
           Flux 1         register_form  { username, email, password }
     2.  Méthodes
           Utilitaires    showToast · removeToast
-          Flux 8         goTo
+          Flux 7         goTo
           Flux 1 & 2     toggleMode
           Flux 2         login
           Flux 1         register
-          Flux 7         (directement dans index.html : currentUser = null)
+          Flux 6         (directement dans index.html : currentUser = null)
     3.  Composants enregistrés
           accueil-page · nouveau-page · nouveau-groupe-page · groupes-page
     4.  Montage  .....  app.mount('#app')
@@ -91,7 +91,7 @@ const app = createApp({
         },
 
         /* =========================================================================
-           FLUX N°8 : NAVIGATION — Changement de page (barre latérale desktop)
+           FLUX N°7 : NAVIGATION — Changement de page (barre latérale desktop)
            Flux : clic bouton sidebar → goTo(page) → currentPage change
                   → Vue.js affiche le composant correspondant + remonte en haut
            ========================================================================= */
@@ -181,11 +181,11 @@ const app = createApp({
    AUCUN FLUX — Enregistrement des composants Vue (une ligne = une page)
    La balise HTML utilisée dans index.html est dérivée du nom (ex: 'accueil-page')
    ========================================================================= */
-app.component('accueil-page',        AccueilPage);       // Flux 9, 10, 14
+
+app.component('accueil-page',        AccueilPage);       // Flux 8
 app.component('nouveau-page',        NouveauPage);        // Flux 3, 5
 app.component('nouveau-groupe-page', NouveauGroupePage);  // Flux 4
-app.component('groupes-page',        GroupesPage);        // Flux 3, 6, 11, 12, 13
-app.component('edit-expense-page',   EditExpensePage);    // Flux 14, 15
+app.component('groupes-page',        GroupesPage);        // Flux 3, 9, 10
 
 /* =========================================================================
    AUCUN FLUX — Montage : Vue prend le contrôle de <div id="app"> dans index.html

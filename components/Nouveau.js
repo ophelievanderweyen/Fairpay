@@ -174,8 +174,8 @@ const NouveauPage = {
         /* =========================================================================
            FLUX N°5 : AJOUTER UNE DÉPENSE — Envoi du formulaire
            Flux : @submit.prevent → validate() → FormData → POST add_depense
-                  → backend INSERT INTO expenses + expense_participants (Flux 16)
-                  → JSON { success: true } → toast + retour 'home' (déclenche Flux n°9)
+                  → backend INSERT INTO expenses → { success: true }
+                  → toast + retour 'home' (déclenche Flux n°8)
            ========================================================================= */
         async submitForm() {
             if (!this.validate()) return;

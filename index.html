@@ -9,12 +9,12 @@
       1.  <head>  ......  Meta · Bootstrap · Bootstrap Icons · style.css · Vue.js
       2.  Auth  ........  Flux 1 & 2  —  Bannière gauche + formulaire connexion/inscription
       3.  App layout
-            3a. Sidebar       Flux 8  —  Navigation desktop (barre latérale)
-            3b. Contenu       Flux 9/10  →  accueil-page      |  Flux 3/6/11/12/13  →  groupes-page
+            3a. Sidebar       Flux 7  —  Navigation desktop (barre latérale)
+            3b. Contenu       Flux 8     →  accueil-page      |  Flux 3/9/10  →  groupes-page
                               Flux 3/5   →  nouveau-page      |  Flux 4  →  nouveau-groupe-page
-                              Flux 14/15 →  edit-expense-page  |  Flux 7  →  profil
-            3c. FAB           Flux 8  —  Bouton flottant (mobile)
-            3d. Bottom nav    Flux 8  —  Navigation mobile
+                              Flux 6     →  profil
+            3c. FAB           Flux 7  —  Bouton flottant (mobile)
+            3d. Bottom nav    Flux 7  —  Navigation mobile
       4.  Toasts  ......  Notifications flottantes (utilisées par tous les flux)
       5.  Imports  .....  Composants JS · app.js
      ─────────────────────────────────────────────────────────────────────────
@@ -34,7 +34,7 @@
 
     <link rel="stylesheet" href="style.css">
 
-    <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
 </head>
 
 <body class="bg-light">
@@ -160,7 +160,7 @@
         <div v-else class="app-layout">
 
             <!-- =====================================================================
-                 FLUX N°8 : NAVIGATION — BARRE LATÉRALE (DESKTOP ≥ 992px)
+                 FLUX N°7 : NAVIGATION — BARRE LATÉRALE (DESKTOP ≥ 992px)
                  Les boutons appellent goTo() dans app.js pour changer currentPage
                  :class="{ active: ... }" ajoute la classe CSS "active" sur le bouton courant
                  ===================================================================== -->
@@ -196,18 +196,18 @@
                 <main class="main-container">
                     <!--
                        Affichage dynamique : currentPage détermine quel composant est visible.
-                       Flux 9 & 10 → accueil-page  (currentUser transmis via la prop :current-user)
-                       Flux 3, 6, 11, 12, 13 → groupes-page
+                       Flux 8 → accueil-page  (currentUser transmis via la prop :current-user)
+                       Flux 3, 9, 10 → groupes-page
                        Flux 3, 5 → nouveau-page
                        Flux 4 → nouveau-groupe-page
-                       Flux 14 → edit-expense-page
+                       Flux 6 → profil
                     -->
                     <accueil-page v-if="currentPage === 'home'" :current-user="currentUser"></accueil-page>
                     <groupes-page v-if="currentPage === 'groupes'"></groupes-page>
                     <nouveau-page v-if="currentPage === 'nouveau'"></nouveau-page>
                     <nouveau-groupe-page v-if="currentPage === 'nouveauGroupe'"></nouveau-groupe-page>
                     <!-- =====================================================================
-                         FLUX N°7 : PAGE PROFIL ET DÉCONNEXION
+                         FLUX N°6 : PAGE PROFIL ET DÉCONNEXION
                          currentUser = null → Vue bascule vers le v-if="!currentUser" (retour login)
                          ===================================================================== -->
                     <div v-if="currentPage === 'profil'" class="p-4 text-dark text-center">
@@ -221,7 +221,7 @@
                 </main>
 
                 <!-- =====================================================================
-                     FLUX N°8 : NAVIGATION — BOUTON FLOTTANT (MOBILE UNIQUEMENT)
+                     FLUX N°7 : NAVIGATION — BOUTON FLOTTANT (MOBILE UNIQUEMENT)
                      Visible uniquement sur mobile (d-lg-none), caché sur desktop
                      @click change currentPage vers 'nouveau' → affiche Nouveau.js (Flux 6)
                      ===================================================================== -->
@@ -230,7 +230,7 @@
                 </button>
 
                 <!-- =====================================================================
-                     FLUX N°8 : NAVIGATION — BARRE DU BAS (MOBILE UNIQUEMENT)
+                     FLUX N°7 : NAVIGATION — BARRE DU BAS (MOBILE UNIQUEMENT)
                      Cachée sur desktop (d-lg-none), remplace la sidebar sur téléphone
                      @click change currentPage → Vue affiche le composant correspondant
                      ===================================================================== -->

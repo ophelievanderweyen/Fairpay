@@ -46,9 +46,7 @@ const NouveauGroupePage = {
             const myId = this.$parent.currentUser.id;
             // On retire l'utilisateur connecté : il sera ajouté automatiquement par le backend
             this.users = allUsers.filter(u => u.id !== myId);
-        } catch (err) {
-            console.error("Erreur chargement utilisateurs:", err);
-        }
+        } catch (err) { /* chargement impossible, users[] reste vide */ }
     },
 
     /* =========================================================================
