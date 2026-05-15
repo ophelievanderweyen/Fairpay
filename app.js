@@ -125,7 +125,7 @@ const app = createApp({
                     body: JSON.stringify(this.login_form)
                 });
 
-                const data = res.json();
+                const data = await res.json();
 
                 // Flux retour ← connexion confirmée → currentUser stocke les infos de session PHP
                 // Vue réagit instantanément : le formulaire disparaît, l'application s'affiche
@@ -154,7 +154,7 @@ const app = createApp({
                     body: JSON.stringify(this.register_form)
                 });
 
-                const data = res.json();
+                const data = await res.json();
 
                 // Flux retour ← inscription réussie → bascule en mode connexion + toast
                 if (res.ok && data.success) {
