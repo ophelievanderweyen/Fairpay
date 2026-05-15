@@ -6,7 +6,7 @@
    TABLE DES MATIÈRES
    ──────────────────────────────────────────────────────────────────────
     1.  Data
-          État global    currentPage · currentUser · editExpenseId · toasts
+          État global    currentPage · currentUser · toasts
           Auth partagé   isLogin · error · showPassword
           Flux 2         login_form  { email, password }
           Flux 1         register_form  { username, email, password }
@@ -18,7 +18,7 @@
           Flux 1         register
           Flux 7         (directement dans index.html : currentUser = null)
     3.  Composants enregistrés
-          accueil-page · nouveau-page · nouveau-groupe-page · groupes-page · edit-expense-page
+          accueil-page · nouveau-page · nouveau-groupe-page · groupes-page
     4.  Montage  .....  app.mount('#app')
    ──────────────────────────────────────────────────────────────────────
 ========================================================================= */
@@ -36,10 +36,10 @@ const app = createApp({
             /* -----------------------------------------------------------------
                AUCUN FLUX — Variables globales de navigation et d'état
                ----------------------------------------------------------------- */
-            currentPage: 'home',  // Page actuellement affichée ('home', 'groupes', 'profil'...)
-            currentUser: null,    // Infos de l'utilisateur connecté (null = non connecté)
+            currentPage:   'home',  // Page actuellement affichée ('home', 'groupes', 'profil'...)
+            currentUser:   null,    // Infos de l'utilisateur connecté (null = non connecté)
             editExpenseId: null,    // ID de la dépense à modifier, partagé avec EditExpense.js (Flux 15)
-            toasts: [],      // Liste des notifications flottantes à afficher
+            toasts:        [],      // Liste des notifications flottantes à afficher
 
             /* -----------------------------------------------------------------
                FLUX N°1 & 2 — Variables communes aux formulaires d'authentification
@@ -181,11 +181,11 @@ const app = createApp({
    AUCUN FLUX — Enregistrement des composants Vue (une ligne = une page)
    La balise HTML utilisée dans index.html est dérivée du nom (ex: 'accueil-page')
    ========================================================================= */
-app.component('accueil-page', AccueilPage);       // Flux 9, 10, 14
-app.component('nouveau-page', NouveauPage);        // Flux 3, 5
+app.component('accueil-page',        AccueilPage);       // Flux 9, 10, 14
+app.component('nouveau-page',        NouveauPage);        // Flux 3, 5
 app.component('nouveau-groupe-page', NouveauGroupePage);  // Flux 4
-app.component('groupes-page', GroupesPage);        // Flux 3, 6, 11, 12, 13
-app.component('edit-expense-page', EditExpensePage);    // Flux 14, 15
+app.component('groupes-page',        GroupesPage);        // Flux 3, 6, 11, 12, 13
+app.component('edit-expense-page',   EditExpensePage);    // Flux 14, 15
 
 /* =========================================================================
    AUCUN FLUX — Montage : Vue prend le contrôle de <div id="app"> dans index.html

@@ -185,13 +185,6 @@
                         <i class="bi bi-person-fill"></i> <span>Profil</span>
                     </button>
                 </nav>
-                <div class="sidebar-help">
-                    <i class="bi bi-question-circle-fill text-primary fs-5"></i>
-                    <div class="ms-2">
-                        <p class="fw-bold mb-0 small">Besoin d'aide ?</p>
-                        <p class="text-muted mb-0" style="font-size:11px;">Contactez notre équipe</p>
-                    </div>
-                </div>
             </aside>
 
             <!-- =====================================================================
@@ -213,8 +206,6 @@
                     <groupes-page v-if="currentPage === 'groupes'"></groupes-page>
                     <nouveau-page v-if="currentPage === 'nouveau'"></nouveau-page>
                     <nouveau-groupe-page v-if="currentPage === 'nouveauGroupe'"></nouveau-groupe-page>
-                    <edit-expense-page v-if="currentPage === 'editExpense'"></edit-expense-page>
-
                     <!-- =====================================================================
                          FLUX N°7 : PAGE PROFIL ET DÉCONNEXION
                          currentUser = null → Vue bascule vers le v-if="!currentUser" (retour login)
@@ -292,7 +283,6 @@
     <script src="components/Nouveau.js"></script>
     <script src="components/NouveauGroupe.js"></script>
     <script src="components/Groupes.js"></script>
-    <script src="components/EditExpense.js"></script>
     <script src="app.js"></script>
 
 </body>
