@@ -116,10 +116,10 @@ const app = createApp({
                   → currentUser reçoit les données de session
                   → Vue.js bascule de v-if="!currentUser" vers v-else (l'application)
            ========================================================================= */
-        login() {
+        async login() {
             this.error = null;
             try {
-                const res = fetch('api/backend.php?action=login', {
+                const res = await fetch('api/backend.php?action=login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(this.login_form)
@@ -145,7 +145,7 @@ const app = createApp({
                   → POST backend.php?action=register avec username + email + mot de passe en JSON
                   → retour automatique en mode connexion + toast de confirmation
            ========================================================================= */
-        register() {
+        async register() {
             this.error = null;
             try {
                 fetch('api/backend.php?action=register', {
