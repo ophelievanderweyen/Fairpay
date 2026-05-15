@@ -1,36 +1,27 @@
 /* =========================================================================
    GROUPES.JS — Composant "Mes Groupes"
-   Flux traités : Flux 3  (liste groupes)      · Flux 6  (suppression groupe)
+   Flux traités : Flux 3  (liste groupes)
                   Flux 11 (détails groupe)      · Flux 12 (ajouter membre)
                   Flux 16 (soldes avec participants)
-                  Flux 17 (modifier groupe)     · Flux 18 (quitter groupe)
 
    TABLE DES MATIÈRES
    ──────────────────────────────────────────────────────────────────────
     1.  Data
           Flux 3     groups
-          Flux 11    selectedGroup · groupExpenses · groupTotals · groupMembers
-          Flux 12    allUsers · newMemberId · showAddMember
+          Flux 11    selectedGroup · groupExpenses · groupMembers
           Flux 16    groupBalances
-          Flux 17    editMode · editForm { name, description }
     2.  Computed
-          Flux 16/13  suggestedDebts  (algorithme glouton — soldes avec participants)
+          Flux 16    suggestedDebts  (algorithme glouton — qui doit quoi)
     3.  Template
-          Liste des groupes  :  Flux 3 (carte cliquable) · Flux 6 (bouton supprimer)
+          Liste des groupes  :  Flux 3 (carte cliquable)
           Panneau de détail  :  Flux 11
-            └─ Totaux par membre
             └─ Dépenses du groupe
-            └─ Membres + ajout      Flux 12
-            └─ Qui doit quoi ?      Flux 16 (calcul participants)
-            └─ Modifier / Quitter   Flux 17 · Flux 18
+            └─ Membres
+            └─ Qui doit quoi ?      Flux 16
     4.  Mounted  .....  fetchGroups (Flux 3)
     5.  Méthodes
           Flux 3    fetchGroups
-          Flux 6    deleteGroup
           Flux 11   selectGroup
-          Flux 12   addMember
-          Flux 17   startEdit · saveGroup
-          Flux 18   leaveGroup
           Util      formatDate
    ──────────────────────────────────────────────────────────────────────
 ========================================================================= */
@@ -52,27 +43,13 @@ const GroupesPage = {
                ----------------------------------------------------------------- */
             selectedGroup:    null,  // Groupe actuellement ouvert (null = panneau fermé)
             groupExpenses:    [],    // Dépenses du groupe sélectionné (avec noms payeurs)
-            groupTotals:      [],    // Total avancé par membre dans ce groupe
             groupMembers:     [],    // Liste des membres du groupe
-
-            /* -----------------------------------------------------------------
-               FLUX N°12 — Variables pour l'ajout d'un membre
-               ----------------------------------------------------------------- */
-            allUsers:      [],    // Tous les utilisateurs de l'appli (pour le menu déroulant)
-            newMemberId:   '',    // ID de l'utilisateur sélectionné dans le menu
-            showAddMember: false, // Bascule l'affichage du formulaire d'ajout
 
             /* -----------------------------------------------------------------
                FLUX N°16 — Soldes nets par membre calculés avec les participants réels
                Remplace le calcul historique en parts égales
                ----------------------------------------------------------------- */
-            groupBalances: [],
-
-            /* -----------------------------------------------------------------
-               FLUX N°17 — Formulaire de modification du groupe sélectionné
-               ----------------------------------------------------------------- */
-            editMode: false,                    // true = formulaire d'édition visible
-            editForm: { name: '', description: '' } // Champs du formulaire d'édition
+            groupBalances: []
         }
     },
 
@@ -143,10 +120,6 @@ const GroupesPage = {
                         <small class="text-muted">{{ g.description || 'Pas de description' }}</small>
                     </div>
                 </div>
-                <!-- Flux n°6 — Bouton supprimer : .stop empêche d'ouvrir le panneau de détail -->
-                <button class="btn btn-link text-danger p-0 ms-3" @click.stop="deleteGroup(g.id)">
-                    <i class="bi bi-trash3"></i>
-                </button>
             </div>
 
             <!-- ================================================================
@@ -163,62 +136,14 @@ const GroupesPage = {
                         </h5>
                         <p v-if="selectedGroup.description" class="text-muted small mb-0">{{ selectedGroup.description }}</p>
                     </div>
-                    <button class="btn btn-outline-secondary btn-sm" @click="selectedGroup = null; editMode = false">
+                    <button class="btn btn-outline-secondary btn-sm" @click="selectedGroup = null">
                         <i class="bi bi-x-lg"></i>
                     </button>
                 </div>
 
-                <!-- ============================================================
-                     FLUX N°17 — Modifier le groupe · FLUX N°18 — Quitter le groupe
-                     Boutons visibles quand le formulaire d'édition est fermé
-                     ============================================================ -->
-                <div v-if="!editMode" class="d-flex gap-2 mb-4">
-                    <button class="btn btn-outline-primary btn-sm" @click="startEdit">
-                        <i class="bi bi-pencil-fill me-1"></i>Modifier
-                    </button>
-                    <button class="btn btn-outline-danger btn-sm" @click="leaveGroup">
-                        <i class="bi bi-box-arrow-right me-1"></i>Quitter
-                    </button>
-                </div>
-
-                <!-- Flux n°17 — Formulaire d'édition (nom + description) -->
-                <div v-else class="mb-4 p-3 rounded" style="background: #f8f9fa; border: 1px solid #e9ecef;">
-                    <p class="fw-bold small mb-2 text-primary"><i class="bi bi-pencil-fill me-1"></i>Modifier le groupe</p>
-                    <input v-model="editForm.name"
-                           class="form-control form-control-sm mb-2"
-                           placeholder="Nom du groupe">
-                    <textarea v-model="editForm.description"
-                              class="form-control form-control-sm mb-2"
-                              rows="2"
-                              placeholder="Description (optionnelle)"></textarea>
-                    <div class="d-flex gap-2">
-                        <button class="btn btn-primary btn-sm" @click="saveGroup">
-                            <i class="bi bi-check-lg me-1"></i>Enregistrer
-                        </button>
-                        <button class="btn btn-outline-secondary btn-sm" @click="editMode = false">
-                            Annuler
-                        </button>
-                    </div>
-                </div>
-
                 <hr class="my-3">
 
-                <!-- Flux n°11 — Requête 1 : Total avancé par membre -->
-                <h6 class="section-label mb-3">Total avancé par membre</h6>
-                <div v-if="groupTotals.length === 0" class="text-muted small mb-4">Aucune dépense enregistrée.</div>
-                <div v-else class="totals-list mb-4">
-                    <div v-for="t in groupTotals" :key="t.nom_payeur" class="total-row">
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="payer-badge">{{ t.nom_payeur.charAt(0).toUpperCase() }}</span>
-                            <span class="fw-bold">{{ t.nom_payeur }}</span>
-                        </div>
-                        <span class="fw-bold text-primary">{{ t.total_avance }} €</span>
-                    </div>
-                </div>
-
-                <hr class="my-3">
-
-                <!-- Flux n°11 — Requête 2 : Dépenses du groupe avec nom du payeur -->
+                <!-- Flux n°11 — Requête 1 : Dépenses du groupe avec nom du payeur -->
                 <h6 class="section-label mb-3">Dépenses du groupe</h6>
                 <div v-if="groupExpenses.length === 0" class="text-muted small mb-4">Aucune dépense pour ce groupe.</div>
                 <div v-else class="expenses-table-wrapper mb-4">
@@ -244,7 +169,7 @@ const GroupesPage = {
 
                 <hr class="my-3">
 
-                <!-- Flux n°11 — Requête 3 + Flux n°12 : Membres du groupe + ajout de membre -->
+                <!-- Flux n°11 — Requête 2 : Membres du groupe -->
                 <h6 class="section-label mb-3">Membres du groupe</h6>
                 <div class="d-flex flex-wrap gap-2 mb-3">
                     <span v-if="groupMembers.length === 0" class="text-muted small">Aucun membre enregistré.</span>
@@ -256,27 +181,12 @@ const GroupesPage = {
                     </span>
                 </div>
 
-                <!-- Flux n°12 — Formulaire d'ajout de membre (toggle) -->
-                <div v-if="!showAddMember">
-                    <button class="btn btn-outline-primary btn-sm" @click="showAddMember = true">
-                        <i class="bi bi-person-plus-fill me-1"></i>Ajouter un membre
-                    </button>
-                </div>
-                <div v-else class="d-flex gap-2 align-items-center flex-wrap mt-1">
-                    <select v-model="newMemberId" class="form-select form-select-sm" style="max-width: 200px;">
-                        <option value="" disabled>Choisir...</option>
-                        <option v-for="u in allUsers" :key="u.id" :value="u.id">{{ u.name }}</option>
-                    </select>
-                    <button class="btn btn-primary btn-sm" @click="addMember" :disabled="!newMemberId">Ajouter</button>
-                    <button class="btn btn-outline-secondary btn-sm" @click="showAddMember = false; newMemberId = ''">Annuler</button>
-                </div>
-
                 <hr class="my-3">
 
                 <!-- Flux n°16 — Qui doit quoi ? (algorithme glouton sur soldes participants réels) -->
                 <h6 class="section-label mb-3">Qui doit quoi ?</h6>
 
-                <div v-if="suggestedDebts.length === 0 && groupTotals.length > 0" class="text-success small mb-3">
+                <div v-if="suggestedDebts.length === 0 && groupExpenses.length > 0" class="text-success small mb-3">
                     <i class="bi bi-check-circle-fill me-1"></i>Tout est équilibré !
                 </div>
 
@@ -298,7 +208,7 @@ const GroupesPage = {
                     </div>
                 </div>
 
-                <div v-if="groupTotals.length === 0" class="text-muted small">
+                <div v-if="groupExpenses.length === 0" class="text-muted small">
                     Aucune dépense dans ce groupe.
                 </div>
 
@@ -329,32 +239,6 @@ const GroupesPage = {
         },
 
         /* =========================================================================
-           FLUX N°6 : SUPPRIMER UN GROUPE
-           Flux : clic poubelle → confirm() → FormData → POST delete_group
-                  → backend DELETE FROM groups WHERE id = :id
-                  → toast + fetchGroups() rafraîchit la liste
-           ========================================================================= */
-        deleteGroup(id) {
-            if (confirm("Supprimer ce groupe ?")) {
-                const formData = new FormData();
-                formData.append('id', id);
-                fetch('api/backend.php?action=delete_group', { method: 'POST', body: formData })
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.success) {
-                            this.$parent.showToast('Groupe supprimé.', 'success');
-                        } else {
-                            this.$parent.showToast('Erreur lors de la suppression.', 'danger');
-                        }
-                        // Referme le panneau si c'est le groupe supprimé qui était ouvert
-                        if (this.selectedGroup && this.selectedGroup.id === id) this.selectedGroup = null;
-                        this.fetchGroups(); // Flux 3 : recharge la liste sans le groupe supprimé
-                    })
-                    .catch(() => { this.$parent.showToast('Erreur réseau.', 'danger'); });
-            }
-        },
-
-        /* =========================================================================
            FLUX N°11 : CONSULTER LES DÉTAILS D'UN GROUPE (5 requêtes ciblées)
            Flux : clic carte groupe → selectGroup(g) → vide les données précédentes
                   → 4 GET simultanés : dépenses nommées, totaux, membres, soldes
@@ -365,135 +249,28 @@ const GroupesPage = {
             // Referme le panneau si on reclique sur le même groupe
             if (this.selectedGroup && this.selectedGroup.id === group.id) {
                 this.selectedGroup = null;
-                this.editMode = false;
                 return;
             }
             // Vide les données précédentes pour éviter d'afficher l'ancien groupe pendant le chargement
             this.selectedGroup    = group;
             this.groupExpenses    = [];
-            this.groupTotals      = [];
             this.groupMembers     = [];
             this.groupBalances    = [];
-            this.showAddMember    = false;
-            this.newMemberId      = '';
-            this.editMode         = false;
 
             // Requête 1 — Dépenses du groupe avec le nom du payeur (JOIN users)
             fetch(`api/backend.php?action=get_group_expenses_named&group_id=${group.id}`)
                 .then(res => res.json())
                 .then(data => { this.groupExpenses = Array.isArray(data) ? data : []; });
 
-            // Requête 2 — Total avancé par membre (SUM par payer_id)
-            fetch(`api/backend.php?action=get_group_totals&group_id=${group.id}`)
-                .then(res => res.json())
-                .then(data => { this.groupTotals = Array.isArray(data) ? data : []; });
-
-            // Requête 3 — Membres du groupe (JOIN participations, id inclus pour Flux 12/16)
+            // Requête 2 — Membres du groupe (JOIN participations, id inclus pour Flux 12/16)
             fetch(`api/backend.php?action=get_group_members&group_id=${group.id}`)
                 .then(res => res.json())
                 .then(data => { this.groupMembers = Array.isArray(data) ? data : []; });
 
-            // Requête 4 (Flux 16) — Soldes nets avec participants réels (remplace calcul en parts égales)
+            // Requête 3 (Flux 16) — Soldes nets avec participants réels
             fetch(`api/backend.php?action=get_group_balances&group_id=${group.id}`)
                 .then(res => res.json())
                 .then(data => { this.groupBalances = Array.isArray(data) ? data : []; });
-
-            // Charge tous les utilisateurs si pas encore fait (nécessaire pour Flux 12 et 13)
-            if (this.allUsers.length === 0) {
-                fetch('api/backend.php?action=get_users')
-                    .then(res => res.json())
-                    .then(data => { this.allUsers = Array.isArray(data) ? data : []; });
-            }
-        },
-
-        /* =========================================================================
-           FLUX N°12 : AJOUTER UN MEMBRE À UN GROUPE
-           Flux : sélection utilisateur → clic "Ajouter" → FormData → POST add_member
-                  → backend INSERT IGNORE INTO participations (user_id, group_id)
-                  → toast + recharge groupMembers[] pour rafraîchir les badges
-           ========================================================================= */
-        async addMember() {
-            if (!this.newMemberId) return;
-
-            const fd = new FormData();
-            fd.append('user_id',  this.newMemberId);
-            fd.append('group_id', this.selectedGroup.id);
-            const res  = await fetch('api/backend.php?action=add_member', { method: 'POST', body: fd });
-            const data = await res.json();
-            if (data.success) {
-                this.$parent.showToast('Membre ajouté au groupe !', 'success');
-                this.newMemberId   = '';
-                this.showAddMember = false;
-                // Flux retour ← recharge les membres ET les soldes (un nouveau membre change les parts)
-                fetch(`api/backend.php?action=get_group_members&group_id=${this.selectedGroup.id}`)
-                    .then(r => r.json())
-                    .then(d => { this.groupMembers = Array.isArray(d) ? d : []; });
-                fetch(`api/backend.php?action=get_group_balances&group_id=${this.selectedGroup.id}`)
-                    .then(r => r.json())
-                    .then(d => { this.groupBalances = Array.isArray(d) ? d : []; });
-            } else {
-                this.$parent.showToast(data.error || "Erreur lors de l'ajout.", 'danger');
-            }
-        },
-
-        /* =========================================================================
-           FLUX N°17 : MODIFIER UN GROUPE
-           Flux : clic "Modifier" → startEdit() → editMode = true → formulaire pré-rempli
-                  clic "Enregistrer" → saveGroup() → FormData → POST update_group
-                  → backend UPDATE groups SET name=?, description=? WHERE id=?
-                  → toast + mise à jour locale + fetchGroups() rafraîchit la liste
-           ========================================================================= */
-        startEdit() {
-            this.editForm = {
-                name:        this.selectedGroup.name,
-                description: this.selectedGroup.description || ''
-            };
-            this.editMode = true;
-        },
-
-        async saveGroup() {
-            if (!this.editForm.name || this.editForm.name.trim().length < 2) {
-                this.$parent.showToast('Le nom doit contenir au moins 2 caractères.', 'danger');
-                return;
-            }
-            const fd = new FormData();
-            fd.append('id',          this.selectedGroup.id);
-            fd.append('name',        this.editForm.name.trim());
-            fd.append('description', this.editForm.description.trim());
-            const res  = await fetch('api/backend.php?action=update_group', { method: 'POST', body: fd });
-            const data = await res.json();
-            if (data.success) {
-                this.$parent.showToast('Groupe modifié avec succès !', 'success');
-                this.editMode = false;
-                // Met à jour l'objet local immédiatement (sans attendre le rechargement)
-                this.selectedGroup.name        = this.editForm.name.trim();
-                this.selectedGroup.description = this.editForm.description.trim();
-                this.fetchGroups(); // Actualise aussi la liste dans la colonne gauche
-            } else {
-                this.$parent.showToast(data.error || 'Erreur lors de la modification.', 'danger');
-            }
-        },
-
-        /* =========================================================================
-           FLUX N°18 : QUITTER UN GROUPE
-           Flux : clic "Quitter" → confirm() → FormData → POST leave_group
-                  → backend DELETE FROM participations WHERE user_id = $uid AND group_id = $id
-                  → toast + ferme le panneau + rafraîchit la liste des groupes
-           ========================================================================= */
-        async leaveGroup() {
-            if (!confirm(`Quitter le groupe "${this.selectedGroup.name}" ?\nVous ne pourrez plus y accéder sans y être réajouté.`)) return;
-
-            const fd = new FormData();
-            fd.append('group_id', this.selectedGroup.id);
-            const res  = await fetch('api/backend.php?action=leave_group', { method: 'POST', body: fd });
-            const data = await res.json();
-            if (data.success) {
-                this.$parent.showToast('Vous avez quitté le groupe.', 'success');
-                this.selectedGroup = null;
-                this.fetchGroups(); // Flux 3 : recharge la liste sans ce groupe
-            } else {
-                this.$parent.showToast(data.error || 'Erreur lors de la sortie du groupe.', 'danger');
-            }
         },
 
         /* =========================================================================
