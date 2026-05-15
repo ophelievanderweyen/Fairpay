@@ -36,16 +36,16 @@ const app = createApp({
             /* -----------------------------------------------------------------
                AUCUN FLUX — Variables globales de navigation et d'état
                ----------------------------------------------------------------- */
-            currentPage:   'home',  // Page actuellement affichée ('home', 'groupes', 'profil'...)
-            currentUser:   null,    // Infos de l'utilisateur connecté (null = non connecté)
+            currentPage: 'home',  // Page actuellement affichée ('home', 'groupes', 'profil'...)
+            currentUser: null,    // Infos de l'utilisateur connecté (null = non connecté)
             editExpenseId: null,    // ID de la dépense à modifier, partagé avec EditExpense.js (Flux 15)
-            toasts:        [],      // Liste des notifications flottantes à afficher
+            toasts: [],      // Liste des notifications flottantes à afficher
 
             /* -----------------------------------------------------------------
                FLUX N°1 & 2 — Variables communes aux formulaires d'authentification
                ----------------------------------------------------------------- */
-            isLogin:      true,   // true = formulaire de connexion, false = formulaire d'inscription
-            error:        null,   // Message d'erreur affiché sous le formulaire actif
+            isLogin: true,   // true = formulaire de connexion, false = formulaire d'inscription
+            error: null,   // Message d'erreur affiché sous le formulaire actif
             showPassword: false,  // Bascule l'affichage du mot de passe en clair
 
             /* -----------------------------------------------------------------
@@ -53,7 +53,7 @@ const app = createApp({
                Liées aux inputs via v-model dans index.html
                ----------------------------------------------------------------- */
             login_form: {
-                email:    '',
+                email: '',
                 password: ''
             },
 
@@ -63,7 +63,7 @@ const app = createApp({
                ----------------------------------------------------------------- */
             register_form: {
                 username: '',
-                email:    '',
+                email: '',
                 password: ''
             }
         }
@@ -106,7 +106,7 @@ const app = createApp({
            ========================================================================= */
         toggleMode() {
             this.isLogin = !this.isLogin;
-            this.error   = null; // Efface les erreurs du formulaire précédent
+            this.error = null; // Efface les erreurs du formulaire précédent
         },
 
         /* =========================================================================
@@ -116,16 +116,16 @@ const app = createApp({
                   → currentUser reçoit les données de session
                   → Vue.js bascule de v-if="!currentUser" vers v-else (l'application)
            ========================================================================= */
-        async login() {
+        login() {
             this.error = null;
             try {
-                const res = await fetch('api/backend.php?action=login', {
-                    method:  'POST',
+                const res = fetch('api/backend.php?action=login', {
+                    method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body:    JSON.stringify(this.login_form)
+                    body: JSON.stringify(this.login_form)
                 });
 
-                const data = await res.json();
+                const data = res.json();
 
                 // Flux retour ← connexion confirmée → currentUser stocke les infos de session PHP
                 // Vue réagit instantanément : le formulaire disparaît, l'application s'affiche
@@ -145,21 +145,21 @@ const app = createApp({
                   → POST backend.php?action=register avec username + email + mot de passe en JSON
                   → retour automatique en mode connexion + toast de confirmation
            ========================================================================= */
-        async register() {
+        register() {
             this.error = null;
             try {
-                const res = await fetch('api/backend.php?action=register', {
-                    method:  'POST',
+                fetch('api/backend.php?action=register', {
+                    method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body:    JSON.stringify(this.register_form)
+                    body: JSON.stringify(this.register_form)
                 });
 
-                const data = await res.json();
+                const data = res.json();
 
                 // Flux retour ← inscription réussie → bascule en mode connexion + toast
                 if (res.ok && data.success) {
                     this.isLogin = true;
-                    this.error   = null;
+                    this.error = null;
                     this.showToast('Inscription réussie ! Vous pouvez vous connecter.', 'success');
                 } else {
                     this.error = data.message || "Erreur lors de l'inscription";
@@ -181,11 +181,11 @@ const app = createApp({
    AUCUN FLUX — Enregistrement des composants Vue (une ligne = une page)
    La balise HTML utilisée dans index.html est dérivée du nom (ex: 'accueil-page')
    ========================================================================= */
-app.component('accueil-page',        AccueilPage);       // Flux 9, 10, 14
-app.component('nouveau-page',        NouveauPage);        // Flux 3, 5
+app.component('accueil-page', AccueilPage);       // Flux 9, 10, 14
+app.component('nouveau-page', NouveauPage);        // Flux 3, 5
 app.component('nouveau-groupe-page', NouveauGroupePage);  // Flux 4
-app.component('groupes-page',        GroupesPage);        // Flux 3, 6, 11, 12, 13
-app.component('edit-expense-page',   EditExpensePage);    // Flux 14, 15
+app.component('groupes-page', GroupesPage);        // Flux 3, 6, 11, 12, 13
+app.component('edit-expense-page', EditExpensePage);    // Flux 14, 15
 
 /* =========================================================================
    AUCUN FLUX — Montage : Vue prend le contrôle de <div id="app"> dans index.html
