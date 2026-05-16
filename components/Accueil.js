@@ -1,19 +1,19 @@
 /* =========================================================================
    ACCUEIL.JS — Composant "Tableau de bord"
-   Flux traités : Flux 9 (Dashboard)
+   Flux traités : Flux 8 (Dashboard)
 
    TABLE DES MATIÈRES
    ──────────────────────────────────────────────────────────────────────
     1.  Props  .......  currentUser  { id, pseudo, nom, heure }
     2.  Data
-          Flux 9        groups · recentExpenses · balance · loading
+          Flux 8        groups · recentExpenses · balance · loading
     3.  Template
           Spinner    (pendant fetchDashboard)
           Bannière · Soldes · Groupes · Dépenses récentes
-    4.  Mounted  .....  fetchDashboard (Flux 9)
+    4.  Mounted  .....  fetchDashboard (Flux 8)
     5.  Méthodes
           Utilitaires   formatDate · groupColor
-          Flux 9  .....  fetchDashboard
+          Flux 8  .....  fetchDashboard
    ──────────────────────────────────────────────────────────────────────
 ========================================================================= */
 
@@ -28,7 +28,7 @@ const AccueilPage = {
     data() {
         return {
             /* -----------------------------------------------------------------
-               FLUX N°9 — Données du tableau de bord reçues depuis get_dashboard
+               FLUX N°8 — Données du tableau de bord reçues depuis get_dashboard
                ----------------------------------------------------------------- */
             groups:         [],
             recentExpenses: [],
@@ -53,13 +53,12 @@ const AccueilPage = {
             </div>
 
             <!-- ================================================================
-                 FLUX N°9 + N°10 — Grille principale du tableau de bord
-                 1 colonne sur mobile, 2 colonnes sur desktop (CSS dashboard-grid)
+                 FLUX N°8 — Grille principale du tableau de bord
                  ================================================================ -->
             <div v-else class="dashboard-grid">
 
                 <!-- ============================================================
-                     COLONNE GAUCHE — Contenu principal (Flux n°9)
+                     Contenu principal (Flux n°8)
                      ============================================================ -->
                 <div class="dashboard-main">
 
@@ -77,7 +76,7 @@ const AccueilPage = {
                         <i class="bi bi-wallet2 welcome-icon"></i>
                     </div>
 
-                    <!-- FLUX N°9 — Cartes de solde global
+                    <!-- FLUX N°8 — Cartes de solde global
                          balance.je_dois et balance.on_me_doit calculés par la formule n-parts côté PHP -->
                     <div class="balance-row mb-4">
                         <div class="balance-card balance-owe">
@@ -92,7 +91,7 @@ const AccueilPage = {
                         </div>
                     </div>
 
-                    <!-- FLUX N°9 — Section groupes
+                    <!-- FLUX N°8 — Section groupes
                          groups[] reçu du backend → v-for génère une carte colorée par groupe -->
                     <div class="section-header mb-3">
                         <h6 class="fw-bold text-dark mb-0">Groupes</h6>
@@ -114,7 +113,7 @@ const AccueilPage = {
                         </div>
                     </div>
 
-                    <!-- FLUX N°9 — Tableau des dépenses récentes
+                    <!-- FLUX N°8 — Tableau des dépenses récentes
                          recentExpenses[] contient group_name et payer_name issus des LEFT JOIN SQL -->
                     <div class="section-header mb-3">
                         <h6 class="fw-bold text-dark mb-0">Dépenses récentes</h6>
@@ -161,7 +160,7 @@ const AccueilPage = {
     `,
 
     /* =========================================================================
-       FLUX N°9 — Montage du composant
+       FLUX N°8 — Montage du composant
        ========================================================================= */
     mounted() {
         this.fetchDashboard();
@@ -192,9 +191,9 @@ const AccueilPage = {
         },
 
         /* =========================================================================
-           FLUX N°9 : DASHBOARD COMPLET — Chargement des données
+           FLUX N°8 : DASHBOARD COMPLET — Chargement des données
            Flux : GET backend.php?action=get_dashboard
-                  → backend exécute 4 requêtes SQL (groupes, dépenses, soldes, total)
+                  → backend exécute 3 requêtes SQL (groupes, dépenses, soldes)
                   → JSON { groups, expenses, balance } → Vue met à jour l'interface
            ========================================================================= */
         fetchDashboard() {
@@ -206,10 +205,7 @@ const AccueilPage = {
                     this.balance        = data.balance  || { je_dois: 0, on_me_doit: 0 };
                     this.loading        = false;
                 })
-                .catch(err => {
-                    console.error('Erreur tableau de bord :', err);
-                    this.loading = false;
-                });
+                .catch(() => { this.loading = false; });
         },
 
     }

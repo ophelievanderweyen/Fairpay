@@ -10,11 +10,11 @@
     4.  Flux 3  ........  get_groups        — Liste de tous les groupes
                           get_users         — Liste de tous les utilisateurs
     5.  Flux 4  ........  add_group         — Créer un groupe + ajouter le créateur
-    6.  Flux 5  ........  add_depense       — Ajouter une dépense (+ enregistrer participants)
-    7.  Flux 9  ........  get_dashboard     — Tableau de bord (soldes + groupes + dépenses récentes)
-    8.  Flux 11  .......  get_group_expenses_named  — Dépenses avec noms (JOIN users)
+    6.  Flux 5  ........  add_depense       — Ajouter une dépense
+    7.  Flux 8  ........  get_dashboard     — Tableau de bord (soldes + groupes + dépenses récentes)
+    8.  Flux 9  ........  get_group_expenses_named  — Dépenses avec noms (JOIN users)
                           get_group_members         — Membres du groupe (id + name + email)
-    9.  Flux 16  .......  get_group_balances — Soldes nets tenant compte des participants
+    9.  Flux 10  .......  get_group_balances — Soldes nets par membre (Qui doit quoi ?)
    10.  Default  .......  Action inconnue → 400
 
    ──────────────────────────────────────────────────────────────────────
@@ -32,8 +32,8 @@
 ini_set('session.cookie_httponly', 1); // empêche JavaScript d'accéder au cookie (injection JS= Les injections JS désignent le fait d'insérer du code JavaScript malveillant dans une page web pour qu'il s'exécute dans le navigateur d'une victime)
 ini_set('session.cookie_secure', 1);   // le cookie n'est envoyé que via HTTPS
 ini_set('session.cookie_samesite', 'Strict'); // aide à réduire les attaques CSRF, avec des valeurs comme Strict
-ini_set('session.cookie_lifetime', 86400); // 24 heures : durée raisonnable pour une session utilisateur
-ini_set('session.gc_maxlifetime',  86400); // Garde les données de session côté serveur aussi longtemps
+ini_set('session.cookie_lifetime', 60*60*10); // 10 heures : durée raisonnable pour une session utilisateur
+ini_set('session.gc_maxlifetime',  60*60*10); // Garde les données de session côté serveur aussi longtemps
 session_start(); // On démarre la session pour pouvoir stocker les infos de l'utilisateur
 
 // Elle dit au navigateur "à partir de maintenant, utilise HTTPS pour ce site"
@@ -99,7 +99,7 @@ if ($action === '' && $_SERVER['REQUEST_METHOD'] === 'POST') {
 /* =========================================================================
    ROUTEUR — Le "switch" fonctionne comme un grand carrefour.
    Selon la valeur de $action, le code va dans la section ("case") correspondante.
-   Ordre : Flux 1 → 2 → 3 → 4 → 5 → 9 → 11 → 12 → 13 → 15 → 16
+   Ordre : Flux 1 → 2 → 3 → 4 → 5 → 8 → 9 → 10
    ========================================================================= */
 switch ($action) {
 
@@ -228,7 +228,7 @@ switch ($action) {
     /* =========================================================================
        FLUX N°3 : AFFICHER LES GROUPES ET LES UTILISATEURS
        Flux : Nouveau.js + Groupes.js au montage → GET get_groups → liste des groupes
-              Nouveau.js + EditExpense.js au montage → GET get_users → liste des membres
+              Nouveau.js + NouveauGroupe.js au montage → GET get_users → liste des membres
        ========================================================================= */
     case 'get_groups':
         try {
@@ -314,8 +314,8 @@ switch ($action) {
     /* =========================================================================
        FLUX N°5 : AJOUTER UNE DÉPENSE
        Flux : Nouveau.js submitForm() → POST FormData (group_id, payer_id, amount, reason,
-              expense_date, participants JSON)
-              → INSERT expenses → INSERT expense_participants → { success: true }
+              expense_date)
+              → INSERT expenses → { success: true }
        ========================================================================= */
     case 'add_depense':
         if (!isset($_SESSION['utilisateur'])) {
@@ -346,7 +346,7 @@ switch ($action) {
                 header('Content-Type: application/json');
                 echo json_encode(['success' => true]);
 
-                // Flux 16 : enregistre les participants dans un bloc séparé
+                // Bloc conservé pour compatibilité (participants non envoyés depuis le frontend)
                 // Séparé du try principal : si l'INSERT échoue, la dépense reste sauvegardée
                 $idNouvelleDepense = (int) $connexion->lastInsertId();
                 if (!empty($_POST['participants'])) {
@@ -371,9 +371,9 @@ switch ($action) {
         exit;
 
     /* =========================================================================
-       FLUX N°9 : TABLEAU DE BORD (DASHBOARD)
+       FLUX N°8 : TABLEAU DE BORD (DASHBOARD)
        Flux : Accueil.js fetchDashboard() → GET get_dashboard
-              → session PHP → 4 requêtes SQL → JSON (groups, expenses, balance)
+              → session PHP → 3 requêtes SQL → JSON (groups, expenses, balance)
               → Vue.js re-rend le tableau de bord
        ========================================================================= */
     case 'get_dashboard':
@@ -495,7 +495,7 @@ switch ($action) {
         exit;
 
     /* =========================================================================
-       FLUX N°11 : CONSULTER LES DÉTAILS D'UN GROUPE
+       FLUX N°9 : CONSULTER LES DÉTAILS D'UN GROUPE
        2 requêtes GET séparées appelées par Groupes.js lors du clic sur un groupe
        Flux : Groupes.js selectGroup() → get_group_expenses_named + get_group_members
        ========================================================================= */
@@ -527,7 +527,7 @@ switch ($action) {
         header('Content-Type: application/json');
         $idGroupe = (int) ($_GET['group_id'] ?? 0);
         try {
-            // JOIN users + participations -> liste des membres du groupe (id inclus pour Flux 16)
+            // JOIN users + participations -> liste des membres du groupe
             $stmt = $connexion->prepare(
                 "SELECT users.id, users.name, users.email
                  FROM users
@@ -544,10 +544,10 @@ switch ($action) {
         exit;
 
     /* =========================================================================
-       FLUX N°16 : SOLDES PAR MEMBRE (QUI DOIT QUOI ?)
-       get_group_balances : pour chaque dépense du groupe, divise le montant uniquement
-         entre ses participants (ou tous les membres si aucun participant enregistré)
-         → calcul correct du "qui doit quoi à qui" (Groupes.js suggestedDebts)
+       FLUX N°10 : SOLDES PAR MEMBRE (QUI DOIT QUOI ?)
+       get_group_balances : pour chaque dépense du groupe, divise le montant
+         entre tous les membres du groupe
+         → calcul du "qui doit quoi à qui" (Groupes.js suggestedDebts)
        ========================================================================= */
     case 'get_group_balances':
         header('Content-Type: application/json');

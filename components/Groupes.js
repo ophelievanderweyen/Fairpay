@@ -1,27 +1,27 @@
 /* =========================================================================
    GROUPES.JS — Composant "Mes Groupes"
    Flux traités : Flux 3  (liste groupes)
-                  Flux 11 (détails groupe)      · Flux 12 (ajouter membre)
-                  Flux 16 (soldes avec participants)
+                  Flux 9  (détails groupe)
+                  Flux 10 (soldes par membre)
 
    TABLE DES MATIÈRES
    ──────────────────────────────────────────────────────────────────────
     1.  Data
           Flux 3     groups
-          Flux 11    selectedGroup · groupExpenses · groupMembers
-          Flux 16    groupBalances
+          Flux 9     selectedGroup · groupExpenses · groupMembers
+          Flux 10    groupBalances
     2.  Computed
-          Flux 16    suggestedDebts  (algorithme glouton — qui doit quoi)
+          Flux 10    suggestedDebts  (algorithme glouton — qui doit quoi)
     3.  Template
           Liste des groupes  :  Flux 3 (carte cliquable)
-          Panneau de détail  :  Flux 11
+          Panneau de détail  :  Flux 9
             └─ Dépenses du groupe
             └─ Membres
-            └─ Qui doit quoi ?      Flux 16
+            └─ Qui doit quoi ?      Flux 10
     4.  Mounted  .....  fetchGroups (Flux 3)
     5.  Méthodes
           Flux 3    fetchGroups
-          Flux 11   selectGroup
+          Flux 9    selectGroup
           Util      formatDate
    ──────────────────────────────────────────────────────────────────────
 ========================================================================= */
@@ -39,23 +39,22 @@ const GroupesPage = {
             groups: [],
 
             /* -----------------------------------------------------------------
-               FLUX N°11 — Données du groupe sélectionné et de son panneau de détail
+               FLUX N°9 — Données du groupe sélectionné et de son panneau de détail
                ----------------------------------------------------------------- */
             selectedGroup:    null,  // Groupe actuellement ouvert (null = panneau fermé)
             groupExpenses:    [],    // Dépenses du groupe sélectionné (avec noms payeurs)
             groupMembers:     [],    // Liste des membres du groupe
 
             /* -----------------------------------------------------------------
-               FLUX N°16 — Soldes nets par membre calculés avec les participants réels
-               Remplace le calcul historique en parts égales
+               FLUX N°10 — Soldes nets par membre (tous les membres du groupe)
                ----------------------------------------------------------------- */
             groupBalances: []
         }
     },
 
     /* =========================================================================
-       FLUX N°16 : QUI DOIT QUOI ? — Algorithme glouton
-       Utilise groupBalances (soldes nets avec participants réels) fournis par
+       FLUX N°10 : QUI DOIT QUOI ? — Algorithme glouton
+       Utilise groupBalances (soldes nets par membre) fournis par
        get_group_balances. Associe chaque débiteur au créditeur disponible le plus grand.
        Flux : groupBalances[] → computed → v-for dans le template
        ========================================================================= */
@@ -105,7 +104,7 @@ const GroupesPage = {
 
             <!-- ================================================================
                  FLUX N°3 — Liste des groupes
-                 Chaque carte est cliquable (Flux n°11) et possède un bouton supprimer (Flux n°6)
+                 Chaque carte est cliquable (Flux n°9)
                  ================================================================ -->
             <div v-for="g in groups" :key="g.id"
                  class="light-card p-3 mb-2 d-flex justify-content-between align-items-center group-card-item"
@@ -123,7 +122,7 @@ const GroupesPage = {
             </div>
 
             <!-- ================================================================
-                 FLUX N°11 — Panneau de détail du groupe sélectionné
+                 FLUX N°9 — Panneau de détail du groupe sélectionné
                  Visible uniquement si selectedGroup n'est pas null
                  ================================================================ -->
             <div v-if="selectedGroup" class="light-card p-4 mt-4">
@@ -143,7 +142,7 @@ const GroupesPage = {
 
                 <hr class="my-3">
 
-                <!-- Flux n°11 — Requête 1 : Dépenses du groupe avec nom du payeur -->
+                <!-- Flux n°9 — Requête 1 : Dépenses du groupe avec nom du payeur -->
                 <h6 class="section-label mb-3">Dépenses du groupe</h6>
                 <div v-if="groupExpenses.length === 0" class="text-muted small mb-4">Aucune dépense pour ce groupe.</div>
                 <div v-else class="expenses-table-wrapper mb-4">
@@ -169,7 +168,7 @@ const GroupesPage = {
 
                 <hr class="my-3">
 
-                <!-- Flux n°11 — Requête 2 : Membres du groupe -->
+                <!-- Flux n°9 — Requête 2 : Membres du groupe -->
                 <h6 class="section-label mb-3">Membres du groupe</h6>
                 <div class="d-flex flex-wrap gap-2 mb-3">
                     <span v-if="groupMembers.length === 0" class="text-muted small">Aucun membre enregistré.</span>
@@ -183,7 +182,7 @@ const GroupesPage = {
 
                 <hr class="my-3">
 
-                <!-- Flux n°16 — Qui doit quoi ? (algorithme glouton sur soldes participants réels) -->
+                <!-- Flux n°10 — Qui doit quoi ? (algorithme glouton sur soldes par membre) -->
                 <h6 class="section-label mb-3">Qui doit quoi ?</h6>
 
                 <div v-if="suggestedDebts.length === 0 && groupExpenses.length > 0" class="text-success small mb-3">
@@ -239,10 +238,9 @@ const GroupesPage = {
         },
 
         /* =========================================================================
-           FLUX N°11 : CONSULTER LES DÉTAILS D'UN GROUPE (5 requêtes ciblées)
+           FLUX N°9 : CONSULTER LES DÉTAILS D'UN GROUPE (3 requêtes ciblées)
            Flux : clic carte groupe → selectGroup(g) → vide les données précédentes
-                  → 4 GET simultanés : dépenses nommées, totaux, membres, soldes
-                  → 1 GET séparé : soldes avec participants (Flux 16)
+                  → 3 GET simultanés : dépenses nommées, membres, soldes
                   → panneau de détail s'affiche (v-if="selectedGroup")
            ========================================================================= */
         selectGroup(group) {
@@ -262,12 +260,12 @@ const GroupesPage = {
                 .then(res => res.json())
                 .then(data => { this.groupExpenses = Array.isArray(data) ? data : []; });
 
-            // Requête 2 — Membres du groupe (JOIN participations, id inclus pour Flux 12/16)
+            // Requête 2 — Membres du groupe (JOIN participations)
             fetch(`api/backend.php?action=get_group_members&group_id=${group.id}`)
                 .then(res => res.json())
                 .then(data => { this.groupMembers = Array.isArray(data) ? data : []; });
 
-            // Requête 3 (Flux 16) — Soldes nets avec participants réels
+            // Requête 3 (Flux 10) — Soldes nets par membre
             fetch(`api/backend.php?action=get_group_balances&group_id=${group.id}`)
                 .then(res => res.json())
                 .then(data => { this.groupBalances = Array.isArray(data) ? data : []; });
