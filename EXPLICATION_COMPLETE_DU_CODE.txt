@@ -927,8 +927,10 @@ backend.php reçoit toutes les requêtes du frontend et renvoie des données JSO
      Fairpay. SameSite=Strict dit "je n'envoie le cookie que si la requête vient
      DE Fairpay elle-même, jamais d'un autre site".
 
-   ini_set('session.cookie_lifetime', 86400);
-   → 86400 = 24 × 60 × 60 = 86400 secondes = 24 heures. La session expire après.
+   ini_set('session.cookie_lifetime', 60*60*10);
+   → 60*60*10 = 36 000 secondes = 10 heures. La session expire après.
+     On écrit la multiplication (60*60*10) plutôt que le résultat brut (36000)
+     pour que ce soit lisible : 60 secondes × 60 minutes × 10 heures.
 
    session_start();
    → Démarre ou reprend la session. La session est comme une mémoire côté serveur :
@@ -1000,14 +1002,22 @@ backend.php reçoit toutes les requêtes du frontend et renvoie des données JSO
    $utilisateurExistant = $stmt->fetch(PDO::FETCH_ASSOC);
 
    REQUÊTES PRÉPARÉES EXPLIQUÉES :
+   Il y a deux façons d'injecter les valeurs dans une requête préparée en PDO.
+   Dans Fairpay, on utilise la méthode bindParam() :
+
    - prepare() : prépare la requête SQL avec des ? à la place des vraies valeurs.
-   - execute([$email, $nom]) : PHP remplace les ? par les valeurs de façon SÉCURISÉE.
+   - bindParam(1, $email) : associe le 1er ? à la variable $email.
+   - bindParam(2, $nom)   : associe le 2ème ? à la variable $nom.
+   - execute()             : exécute la requête avec les valeurs liées.
+
+   Le chiffre dans bindParam(1, ...) correspond à la position du ? dans la requête
+   (1 = premier ?, 2 = deuxième ?, etc.).
 
    Pourquoi sécurisé ? Sans requêtes préparées, un pirate pourrait écrire comme
    email : "' OR 1=1; DROP TABLE users; --" et la requête deviendrait :
    SELECT * FROM users WHERE email = '' OR 1=1; DROP TABLE users; --
-   Ce qui effacerait toute la table ! Avec prepare(), les ? sont traités comme
-   des données pures, jamais comme du code SQL.
+   Ce qui effacerait toute la table ! Avec prepare() + bindParam(), les ? sont
+   traités comme des données pures, jamais comme du code SQL.
 
    PDO::FETCH_ASSOC : retourne les résultats sous forme de tableau associatif.
    Ex: ['id' => 5, 'name' => 'Alice'] au lieu de [0 => 5, 1 => 'Alice'].
@@ -1053,7 +1063,7 @@ backend.php reçoit toutes les requêtes du frontend et renvoie des données JSO
    $_SESSION['utilisateur'] = ['id' => ..., 'pseudo' => ..., 'nom' => ..., 'heure' => ...]
 
    Stocke les infos dans la session PHP. C'est une mémoire côté serveur liée
-   à l'utilisateur via son cookie. Dure jusqu'à 24 heures.
+   à l'utilisateur via son cookie. Dure jusqu'à 10 heures.
 
 --- FLUX 3 : LIRE LES GROUPES (get_groups) ---
 
@@ -1557,12 +1567,17 @@ Si email = "x' OR 1=1 --", la requête devient :
    SELECT * FROM users WHERE email = 'x' OR 1=1 --'
    → retourne TOUS les utilisateurs (1=1 est toujours vrai). Catastrophe !
 
-Avec PDO (sécurisé) :
+Avec PDO (sécurisé) — méthode bindParam utilisée dans Fairpay :
    $stmt = $connexion->prepare("SELECT * FROM users WHERE email = ?");
-   $stmt->execute([$email]);
+   $stmt->bindParam(1, $email);
+   $stmt->execute();
 
 PDO traite ? comme une valeur pure, jamais comme du code SQL.
 "x' OR 1=1 --" sera cherché tel quel comme email (aucun utilisateur trouvé).
+
+   On peut aussi écrire $stmt->execute([$email]) (syntaxe alternative courte),
+   mais bindParam() est plus explicite et c'est ce qu'on utilise dans Fairpay.
+   Le chiffre (1, 2, 3...) correspond à la position du ? dans la requête.
 
 --- LES HEADERS HTTP ---
 
