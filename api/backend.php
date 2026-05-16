@@ -138,7 +138,9 @@ switch ($action) {
         // $stmt : C'est une variable qui contient une requête SQL préparée, mais pas encore exécutée.
 
         $stmt = $connexion->prepare('SELECT id FROM users WHERE email = ? OR name = ? LIMIT 1');
-        $stmt->execute([$email, $nom]); // Exécute la requête avec l'email fourni
+        $stmt->bindParam(1, $email);
+        $stmt->bindParam(2, $nom);
+        $stmt->execute(); // Exécute la requête avec l'email fourni
         $utilisateurExistant = $stmt->fetch(PDO::FETCH_ASSOC);
         // PDO = Méthode PHP  pour communiquer avec une base de données de manière sécurisée.
         // Elle évie lesw injections SQL et fonctionne avec plusieurs types de bases
@@ -156,7 +158,10 @@ switch ($action) {
 
         // 6. Insertion du nouvel utilisateur dans la base de données
         $stmt = $connexion->prepare('INSERT INTO users (name, email, password) VALUES (?, ?, ?)');
-        $stmt->execute([$nom, $email, $motDePasseHache]);
+        $stmt->bindParam(1, $nom);
+        $stmt->bindParam(2, $email);
+        $stmt->bindParam(3, $motDePasseHache);
+        $stmt->execute();
 
         // 7. Renvoi d'un message de succès
         echo json_encode(['success' => true, 'message' => 'Inscription réussie']);
@@ -193,7 +198,8 @@ switch ($action) {
 
         // $stmt : C'est une variable qui contient une requête SQL préparée, mais pas encore exécutée.
         $stmt = $connexion->prepare('SELECT id, name, email, password FROM users WHERE email = ? LIMIT 1'); // Prépare une requête sécurisée pour éviter les injections SQL
-        $stmt->execute([$email]); // Exécute la requête avec l'email fourni
+        $stmt->bindParam(1, $email);
+        $stmt->execute(); // Exécute la requête avec l'email fourni
         $infosUtilisateur = $stmt->fetch(PDO::FETCH_ASSOC); // Récupère les informations de l'utilisateur (sous forme de tableau associatif)
         // PDO = Méthode PHP pour communiquer avec une base de données de manière sécurisée.
         // Elle évite les injections SQL et fonctionne avec plusieurs types de bases de données.
@@ -285,19 +291,26 @@ switch ($action) {
             try {
                 $sql = "INSERT INTO `groups` (name, description, created_by) VALUES (:n, :d, :c)";
                 $stmt = $connexion->prepare($sql);
-                $stmt->execute([':n' => $nom, ':d' => $description, ':c' => $creePar]);
+                $stmt->bindParam(':n', $nom);
+                $stmt->bindParam(':d', $description);
+                $stmt->bindParam(':c', $creePar, PDO::PARAM_INT);
+                $stmt->execute();
 
                 // Ajout automatique du créateur comme premier membre du groupe
                 $idNouveauGroupe = (int) $connexion->lastInsertId();
                 $requeteParticipation = $connexion->prepare("INSERT IGNORE INTO participations (user_id, group_id) VALUES (?, ?)");
-                $requeteParticipation->execute([$creePar, $idNouveauGroupe]);
+                $requeteParticipation->bindParam(1, $creePar, PDO::PARAM_INT);
+                $requeteParticipation->bindParam(2, $idNouveauGroupe, PDO::PARAM_INT);
+                $requeteParticipation->execute();
 
                 // Ajout des membres sélectionnés
                 if (is_array($membres)) {
                     foreach ($membres as $idMembre) {
                         $idMembre = (int) $idMembre;
                         if ($idMembre > 0) {
-                            $requeteParticipation->execute([$idMembre, $idNouveauGroupe]);
+                            $requeteParticipation->bindParam(1, $idMembre, PDO::PARAM_INT);
+                            $requeteParticipation->bindParam(2, $idNouveauGroupe, PDO::PARAM_INT);
+                            $requeteParticipation->execute();
                         }
                     }
                 }
@@ -341,7 +354,12 @@ switch ($action) {
                 $sql = "INSERT INTO expenses (group_id, payer_id, amount, expense_date, reason)
                         VALUES (:g, :p, :a, :d, :r)";
                 $stmt = $connexion->prepare($sql);
-                $stmt->execute([':g' => $group_id, ':p' => $payer_id, ':a' => $montant, ':d' => $date, ':r' => $motif]);
+                $stmt->bindParam(':g', $group_id, PDO::PARAM_INT);
+                $stmt->bindParam(':p', $payer_id, PDO::PARAM_INT);
+                $stmt->bindParam(':a', $montant);
+                $stmt->bindParam(':d', $date);
+                $stmt->bindParam(':r', $motif);
+                $stmt->execute();
 
                 header('Content-Type: application/json');
                 echo json_encode(['success' => true]);
@@ -357,7 +375,9 @@ switch ($action) {
                             foreach ($listeParticipants as $idMembre) {
                                 $idMembre = (int) $idMembre;
                                 if ($idMembre > 0) {
-                                    $requeteParticipants->execute([$idNouvelleDepense, $idMembre]);
+                                    $requeteParticipants->bindParam(1, $idNouvelleDepense, PDO::PARAM_INT);
+                                    $requeteParticipants->bindParam(2, $idMembre, PDO::PARAM_INT);
+                                    $requeteParticipants->execute();
                                 }
                             }
                         } catch (PDOException $e2) { /* Silencieux : ne pas bloquer la réponse */ }
@@ -416,7 +436,8 @@ switch ($action) {
             // "je_dois"    s'accumule pour chaque dépense où quelqu'un d'autre a payé et je suis participant.
             // Les deux côtés s'accumulent indépendamment : on ne compense pas "je dois X" avec "X me doit Y".
             $requeteGroupes = $connexion->prepare("SELECT group_id FROM participations WHERE user_id = ? LIMIT 200");
-            $requeteGroupes->execute([$idUtilisateur]);
+            $requeteGroupes->bindParam(1, $idUtilisateur, PDO::PARAM_INT);
+            $requeteGroupes->execute();
             $mesGroupes = array_column($requeteGroupes->fetchAll(PDO::FETCH_ASSOC), 'group_id');
 
             $je_dois    = 0.0;
@@ -432,7 +453,8 @@ switch ($action) {
                      WHERE participations.group_id = ?
                      LIMIT 100"
                 );
-                $requeteMembres->execute([$idGroupe]);
+                $requeteMembres->bindParam(1, $idGroupe, PDO::PARAM_INT);
+                $requeteMembres->execute();
                 $idsMembres = array_map('intval', array_column($requeteMembres->fetchAll(PDO::FETCH_ASSOC), 'id'));
 
                 // Tous les participants par dépense pour ce groupe (une seule requête)
@@ -443,7 +465,8 @@ switch ($action) {
                      WHERE e.group_id = ?
                      LIMIT 1000"
                 );
-                $requeteParticipants->execute([$idGroupe]);
+                $requeteParticipants->bindParam(1, $idGroupe, PDO::PARAM_INT);
+                $requeteParticipants->execute();
                 $participantsParDepense = [];
                 foreach ($requeteParticipants->fetchAll(PDO::FETCH_ASSOC) as $ligne) {
                     $participantsParDepense[(int)$ligne['expense_id']][] = (int)$ligne['user_id'];
@@ -451,7 +474,8 @@ switch ($action) {
 
                 // Dépenses du groupe
                 $requeteDepenses = $connexion->prepare("SELECT id, payer_id, amount FROM expenses WHERE group_id = ? LIMIT 500");
-                $requeteDepenses->execute([$idGroupe]);
+                $requeteDepenses->bindParam(1, $idGroupe, PDO::PARAM_INT);
+                $requeteDepenses->execute();
 
                 foreach ($requeteDepenses->fetchAll(PDO::FETCH_ASSOC) as $depense) {
                     $idExp          = (int) $depense['id'];
@@ -514,7 +538,8 @@ switch ($action) {
                  ORDER BY expenses.amount DESC
                  LIMIT 100"
             );
-            $stmt->execute([$idGroupe]);
+            $stmt->bindParam(1, $idGroupe, PDO::PARAM_INT);
+            $stmt->execute();
             $depenses = $stmt->fetchAll(PDO::FETCH_ASSOC);
             echo json_encode($depenses);
         } catch (PDOException $e) {
@@ -535,7 +560,8 @@ switch ($action) {
                  WHERE participations.group_id = ?
                  LIMIT 100"
             );
-            $stmt->execute([$idGroupe]);
+            $stmt->bindParam(1, $idGroupe, PDO::PARAM_INT);
+            $stmt->execute();
             $membres = $stmt->fetchAll(PDO::FETCH_ASSOC);
             echo json_encode($membres);
         } catch (PDOException $e) {
@@ -560,7 +586,8 @@ switch ($action) {
                  WHERE participations.group_id = ?
                  LIMIT 100"
             );
-            $requeteMembres->execute([$idGroupe]);
+            $requeteMembres->bindParam(1, $idGroupe, PDO::PARAM_INT);
+            $requeteMembres->execute();
             $membres = $requeteMembres->fetchAll(PDO::FETCH_ASSOC);
 
             // Initialise le solde net de chaque membre à 0
@@ -572,7 +599,8 @@ switch ($action) {
 
             // Récupère toutes les dépenses du groupe
             $requeteDepenses = $connexion->prepare("SELECT id, payer_id, amount FROM expenses WHERE group_id = ? LIMIT 500");
-            $requeteDepenses->execute([$idGroupe]);
+            $requeteDepenses->bindParam(1, $idGroupe, PDO::PARAM_INT);
+            $requeteDepenses->execute();
             $depenses = $requeteDepenses->fetchAll(PDO::FETCH_ASSOC);
 
             $requeteParticipantsDepense = $connexion->prepare("SELECT user_id FROM expense_participants WHERE expense_id = ? LIMIT 100");
@@ -580,7 +608,9 @@ switch ($action) {
 
             foreach ($depenses as $depense) {
                 // Requête des participants spécifiques à cette dépense
-                $requeteParticipantsDepense->execute([(int)$depense['id']]);
+                $idDepense = (int)$depense['id'];
+                $requeteParticipantsDepense->bindParam(1, $idDepense, PDO::PARAM_INT);
+                $requeteParticipantsDepense->execute();
                 $lignes = $requeteParticipantsDepense->fetchAll(PDO::FETCH_ASSOC);
                 if (!empty($lignes)) {
                     $idsParticipants = array_map('intval', array_column($lignes, 'user_id'));
