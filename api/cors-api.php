@@ -6,6 +6,9 @@
 // le droit de faire des requêtes vers le serveur et ajoute des protections
 // contre diverses attaques web (XSS, Clickjacking, Sniffing).
 
+// CORS permet d’autoriser certains sites web à accéder aux ressources d’un autre site.
+// Il protège les données en bloquant les accès cross-origin non autorisés côté navigateur.
+
 const DEVELOPMENT = True; // En mode dev, on affiche les erreurs pour aider au débogage
 if (DEVELOPMENT) {
     error_reporting(E_ALL);
