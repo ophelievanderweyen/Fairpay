@@ -130,8 +130,7 @@ const NouveauPage = {
     `,
 
     /* =========================================================================
-       FLUX N°3 : AFFICHER LES GROUPES — Chargement des groupes au montage
-       FLUX N°5 : AJOUTER UNE DÉPENSE — Chargement des utilisateurs au montage
+       FLUX N°3 : AFFICHER LES GROUPES ET UTILISATEURS — Chargement au montage
        Flux : montage du composant → deux GET simultanés
               → get_groups → groups[] (menu "Dans quel groupe ?")
               → get_users  → users[]  (menu "Payé par")
@@ -143,7 +142,7 @@ const NouveauPage = {
             .then(data => { this.groups = Array.isArray(data) ? data : []; })
             .catch(() => {});
 
-        // Flux 5 : charge les utilisateurs pour le menu déroulant "Payé par"
+        // Flux 3 : charge les utilisateurs pour le menu déroulant "Payé par"
         fetch('api/backend.php?action=get_users')
             .then(res => res.json())
             .then(data => { this.users = Array.isArray(data) ? data : []; })
@@ -190,7 +189,7 @@ const NouveauPage = {
             try {
                 const res  = await fetch('api/backend.php?action=add_depense', { method: 'POST', body: fd });
                 const data = await res.json();
-                // Flux retour ← succès → retour 'home' relance automatiquement le Flux n°9 (Dashboard)
+                // Flux retour ← succès → retour 'home' relance automatiquement le Flux n°8 (Dashboard)
                 if (data.success) {
                     this.$parent.showToast('Dépense ajoutée avec succès !', 'success');
                     this.$parent.currentPage = 'home';

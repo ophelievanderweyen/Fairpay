@@ -208,22 +208,22 @@
                     <nouveau-groupe-page v-if="currentPage === 'nouveauGroupe'"></nouveau-groupe-page>
                     <!-- =====================================================================
                          FLUX N°6 : PAGE PROFIL ET DÉCONNEXION
-                         currentUser = null → Vue bascule vers le v-if="!currentUser" (retour login)
+                         logout() → vide currentUser + localStorage → Vue bascule vers v-if="!currentUser" (retour login)
                          ===================================================================== -->
                     <div v-if="currentPage === 'profil'" class="p-4 text-dark text-center">
                         <i class="bi bi-person-circle fs-1 text-primary mb-3 d-block"></i>
                         <h5>Mon Profil</h5>
                         <p class="text-muted small">Connectée en tant que {{ currentUser.pseudo }}</p>
                         <hr>
-                        <!-- Ce bouton passe currentUser à null → retour à l'écran de connexion -->
-                        <button class="btn btn-outline-danger btn-sm" @click="currentUser = null">Déconnexion</button>
+                        <!-- Ce bouton appelle logout() → vide currentUser + localStorage → retour à l'écran de connexion -->
+                        <button class="btn btn-outline-danger btn-sm" @click="logout()">Déconnexion</button>
                     </div>
                 </main>
 
                 <!-- =====================================================================
                      FLUX N°7 : NAVIGATION — BOUTON FLOTTANT (MOBILE UNIQUEMENT)
                      Visible uniquement sur mobile (d-lg-none), caché sur desktop
-                     @click change currentPage vers 'nouveau' → affiche Nouveau.js (Flux 6)
+                     @click change currentPage vers 'nouveau' → affiche Nouveau.js (Flux 5)
                      ===================================================================== -->
                 <button v-if="currentPage === 'home'" class="fab-button d-lg-none" @click="currentPage = 'nouveau'">
                     <i class="bi bi-plus-lg"></i>
