@@ -117,6 +117,16 @@ JSON (JavaScript Object Notation) :
    un format de liste standardisé :
    {"nom": "Alice", "montant": 25.50, "groupe": "Vacances"}
 
+localStorage :
+   Un espace de stockage intégré au navigateur. Contrairement aux variables
+   JavaScript (perdues au rechargement), les données dans localStorage restent
+   même si l'utilisateur ferme et rouvre l'onglet.
+   Dans Fairpay, on s'en sert pour mémoriser les infos de l'utilisateur connecté
+   afin qu'il ne doive pas se reconnecter à chaque rechargement de page.
+   localStorage.setItem('clé', valeur) → sauvegarde.
+   localStorage.getItem('clé') → lecture.
+   localStorage.removeItem('clé') → suppression (utilisé à la déconnexion).
+
 ================================================================================
 PARTIE 3 — INDEX.HTML — LA PORTE D'ENTRÉE
 ================================================================================
@@ -295,11 +305,12 @@ La ZONE DE CONTENU PRINCIPAL :
 
 LA PAGE PROFIL (Flux 6) :
    <div v-if="currentPage === 'profil'" ...>
-     <button @click="currentUser = null">Déconnexion</button>
+     <button @click="logout()">Déconnexion</button>
    </div>
 
-   La déconnexion est ultra-simple : on met currentUser = null.
-   Vue.js réagit immédiatement et affiche le formulaire de connexion (v-if="!currentUser").
+   Le bouton appelle la méthode logout() définie dans app.js.
+   logout() fait deux choses : met currentUser = null ET supprime l'entrée "fairpay_user"
+   du localStorage. Vue.js réagit immédiatement et affiche le formulaire de connexion.
    ATTENTION : la session PHP côté serveur n'est pas détruite (pas d'appel fetch).
 
 Le BOUTON FLOTTANT FAB (mobile uniquement) :
@@ -370,7 +381,7 @@ l'application et les fonctions partagées entre tous les composants.
    data() {
      return {
        currentPage: 'home',
-       currentUser: null,
+       currentUser: JSON.parse(localStorage.getItem('fairpay_user') || 'null'),
        ...
      }
    }
@@ -386,9 +397,12 @@ l'application et les fonctions partagées entre tous les composants.
    → La page actuellement affichée. Peut valoir :
      'home', 'groupes', 'nouveau', 'nouveauGroupe', 'profil'
 
-   currentUser: null
-   → null signifie "rien" / "vide". Au démarrage, personne n'est connecté.
-     Après connexion, contient un objet : { id: 3, pseudo: "Alice", ... }
+   currentUser: JSON.parse(localStorage.getItem('fairpay_user') || 'null')
+   → Au démarrage, Vue.js regarde dans le localStorage du navigateur.
+     Si l'utilisateur était connecté avant de recharger la page, ses infos y sont
+     encore et il reste connecté automatiquement.
+     Si rien n'est trouvé, 'null' par défaut (personne connecté = formulaire de login).
+     Après connexion réussie, contient un objet : { id: 3, pseudo: "Alice", ... }
 
    toasts: []
    → Tableau vide au départ. Quand showToast() est appelé, on y ajoute un objet.
@@ -512,6 +526,11 @@ l'application et les fonctions partagées entre tous les composants.
    this.currentUser = data.user : stocke les infos de l'utilisateur. Vue.js
    détecte le changement et bascule immédiatement vers l'application.
 
+   localStorage.setItem('fairpay_user', JSON.stringify(data.user)) : sauvegarde
+   les infos dans le localStorage du navigateur. Ainsi, si l'utilisateur recharge
+   la page, il reste connecté (currentUser est restauré depuis le localStorage
+   au démarrage de Vue.js).
+
    try/catch : si une erreur survient n'importe où dans le try (réseau coupé,
    serveur planté...), le catch attrape l'erreur et affiche un message.
 
@@ -522,6 +541,20 @@ l'application et les fonctions partagées entre tous les composants.
    Même principe que login(). Envoie username+email+password au backend.
    Si succès : this.isLogin = true (retour au formulaire de connexion) + toast.
    Si erreur : this.error = message d'erreur.
+
+--- LA MÉTHODE logout() ---
+
+   logout() {
+     this.currentUser = null;
+     localStorage.removeItem('fairpay_user');
+   }
+
+   Déconnecte l'utilisateur en deux étapes :
+   1. this.currentUser = null : Vue.js détecte le changement et affiche le formulaire
+      de connexion (v-if="!currentUser" dans index.html).
+   2. localStorage.removeItem('fairpay_user') : supprime les infos du localStorage.
+      Sans cette ligne, au prochain rechargement de page, l'utilisateur serait
+      automatiquement reconnecté (ce qui n'est pas le comportement voulu après logout).
 
 --- ENREGISTREMENT DES COMPOSANTS ---
 
@@ -1510,8 +1543,9 @@ FLUX 5 — AJOUTER UNE DÉPENSE :
    La dépense est partagée équitablement entre tous les membres du groupe.
 
 FLUX 6 — DÉCONNEXION :
-   Clic "Déconnexion" → currentUser = null → Vue.js bascule vers l'écran de connexion
-   (simple, pas d'appel au backend, la session PHP reste active côté serveur)
+   Clic "Déconnexion" → logout() dans app.js → currentUser = null + localStorage vidé
+   → Vue.js bascule vers l'écran de connexion
+   (pas d'appel au backend, la session PHP reste active côté serveur)
 
 FLUX 7 — NAVIGATION :
    Clic dans la sidebar/barre du bas → goTo('page') → currentPage change

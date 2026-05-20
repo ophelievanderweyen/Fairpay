@@ -16,7 +16,7 @@
           Flux 1 & 2     toggleMode
           Flux 2         login
           Flux 1         register
-          Flux 6         (directement dans index.html : currentUser = null)
+          Flux 6         logout  (vide currentUser + localStorage)
     3.  Composants enregistrés
           accueil-page · nouveau-page · nouveau-groupe-page · groupes-page
     4.  Montage  .....  app.mount('#app')
@@ -37,8 +37,8 @@ const app = createApp({
                AUCUN FLUX — Variables globales de navigation et d'état
                ----------------------------------------------------------------- */
             currentPage:   'home',  // Page actuellement affichée ('home', 'groupes', 'profil'...)
-            currentUser:   null,    // Infos de l'utilisateur connecté (null = non connecté)
-            editExpenseId: null,    // ID de la dépense à modifier, partagé avec EditExpense.js (Flux 15)
+            currentUser:   JSON.parse(localStorage.getItem('fairpay_user') || 'null'), // Infos de l'utilisateur connecté (null = non connecté) — persisté dans localStorage pour survivre aux rechargements
+            editExpenseId: null,    // ID de la dépense actuellement sélectionnée pour modification
             toasts:        [],      // Liste des notifications flottantes à afficher
 
             /* -----------------------------------------------------------------
@@ -131,6 +131,7 @@ const app = createApp({
                 // Vue réagit instantanément : le formulaire disparaît, l'application s'affiche
                 if (res.ok && data.connexion) {
                     this.currentUser = data.user;
+                    localStorage.setItem('fairpay_user', JSON.stringify(data.user));
                 } else {
                     this.error = data.message || 'Erreur de connexion';
                 }
@@ -167,13 +168,16 @@ const app = createApp({
             } catch (err) {
                 this.error = 'Erreur serveur interne';
             }
-        }
+        },
 
         /* =========================================================================
-           FLUX N°7 : DÉCONNEXION — Gérée directement dans index.html
-           @click="currentUser = null" vide la variable → Vue rebascule sur le formulaire
-           Attention : la session PHP côté serveur n'est PAS détruite (pas d'appel fetch)
+           FLUX N°6 : DÉCONNEXION
+           Vide currentUser + supprime le localStorage → Vue rebascule sur le formulaire
            ========================================================================= */
+        logout() {
+            this.currentUser = null;
+            localStorage.removeItem('fairpay_user');
+        }
     }
 });
 
