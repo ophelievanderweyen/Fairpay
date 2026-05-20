@@ -41,9 +41,9 @@ const GroupesPage = {
             /* -----------------------------------------------------------------
                FLUX N°9 — Données du groupe sélectionné et de son panneau de détail
                ----------------------------------------------------------------- */
-            selectedGroup:    null,  // Groupe actuellement ouvert (null = panneau fermé)
-            groupExpenses:    [],    // Dépenses du groupe sélectionné (avec noms payeurs)
-            groupMembers:     [],    // Liste des membres du groupe
+            selectedGroup: null,  // Groupe actuellement ouvert (null = panneau fermé)
+            groupExpenses: [],    // Dépenses du groupe sélectionné (avec noms payeurs)
+            groupMembers: [],    // Liste des membres du groupe
 
             /* -----------------------------------------------------------------
                FLUX N°10 — Soldes nets par membre (tous les membres du groupe)
@@ -67,8 +67,8 @@ const GroupesPage = {
             const creditors = [], debtors = [];
             this.groupBalances.forEach(b => {
                 const net = parseFloat(b.net_balance);
-                if      (net >  0.01) creditors.push({ name: b.name, amount:  net });
-                else if (net < -0.01) debtors.push(  { name: b.name, amount: -net });
+                if (net > 0.01) creditors.push({ name: b.name, amount: net });
+                else if (net < -0.01) debtors.push({ name: b.name, amount: -net });
             });
 
             // Algorithme glouton : associe chaque débiteur au créditeur disponible
@@ -77,13 +77,13 @@ const GroupesPage = {
             while (i < debtors.length && j < creditors.length) {
                 const amount = Math.min(debtors[i].amount, creditors[j].amount);
                 settlements.push({
-                    from:   debtors[i].name,
-                    to:     creditors[j].name,
+                    from: debtors[i].name,
+                    to: creditors[j].name,
                     amount: Math.round(amount * 100) / 100
                 });
-                debtors[i].amount   -= amount;
+                debtors[i].amount -= amount;
                 creditors[j].amount -= amount;
-                if (debtors[i].amount   < 0.01) i++;
+                if (debtors[i].amount < 0.01) i++;
                 if (creditors[j].amount < 0.01) j++;
             }
             return settlements;
@@ -143,7 +143,45 @@ const GroupesPage = {
                 <hr class="my-3">
 
                 <!-- Flux n°9 — Requête 1 : Dépenses du groupe avec nom du payeur -->
-                <h6 class="section-label mb-3">Dépenses du groupe</h6>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="section-label mb-0">Dépenses du groupe</h6>
+                    <!--
+    ============================================================================
+    BOUTON D'EXPORT EXCEL
+    ============================================================================
+
+    Ce bouton permet de télécharger automatiquement un fichier Excel (.xlsx)
+    contenant toutes les dépenses du groupe actuellement sélectionné.
+
+    v-if :
+    Le bouton s'affiche uniquement si :
+    - un groupe est sélectionné
+    - le groupe contient au moins une dépense
+
+    selectedGroup.id :
+    permet de récupérer dynamiquement l'id du groupe ouvert.
+
+    Exemple d'URL générée :
+    api/export.php?group_id=8
+
+    Lorsque l'utilisateur clique :
+    - export.php est appelé
+    - les données sont récupérées depuis la base de données
+    - un fichier Excel est généré automatiquement
+    - le téléchargement démarre dans le navigateur
+    ============================================================================
+    -->
+
+                    <a
+                        v-if="selectedGroup && groupExpenses.length > 0"
+                        :href="'api/export.php?group_id=' + selectedGroup.id"
+                        class="btn btn-sm"
+                            style="background:#1D6F42; color:white; border-radius:10px;"
+                    >
+                        <i class="bi bi-file-earmark-excel me-1"></i>
+                        Export Excel
+                    </a>
+                </div>
                 <div v-if="groupExpenses.length === 0" class="text-muted small mb-4">Aucune dépense pour ce groupe.</div>
                 <div v-else class="expenses-table-wrapper mb-4">
                     <table class="expenses-table">
@@ -250,10 +288,10 @@ const GroupesPage = {
                 return;
             }
             // Vide les données précédentes pour éviter d'afficher l'ancien groupe pendant le chargement
-            this.selectedGroup    = group;
-            this.groupExpenses    = [];
-            this.groupMembers     = [];
-            this.groupBalances    = [];
+            this.selectedGroup = group;
+            this.groupExpenses = [];
+            this.groupMembers = [];
+            this.groupBalances = [];
 
             // Requête 1 — Dépenses du groupe avec le nom du payeur (JOIN users)
             fetch(`api/backend.php?action=get_group_expenses_named&group_id=${group.id}`)
