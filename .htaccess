@@ -10,3 +10,9 @@ Header always set Strict-Transport-Security: "max-age=31536000; includeSubDomain
 
 # Empêche le navigateur de "deviner" le type de fichier (évite les attaques où un fichier pirate se déguise)
 Header always set X-Content-Type-Options: "nosniff"
+
+// Ton cours montre une grosse ligne de configuration pour le fichier .htaccess. 
+//C'est la CSP (Content Security Policy). C'est un bouclier pour ton site. 
+//Elle dit au navigateur : "Tu as le droit de charger des scripts UNIQUEMENT depuis mon site ('self') 
+//et depuis les adresses de confiance que je te donne (ex: unpkg.com pour Vue, jsdelivr.net pour Bootstrap)". 
+//Si un pirate essaie d'injecter un script malveillant sur ton site, le navigateur va lire la CSP, voir que l'adresse du pirate n'est pas autorisée, et bloquer le script !
